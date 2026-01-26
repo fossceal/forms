@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CHAMBER WEEK'26 | Registration Form</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=VT323&family=DotGothic16&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/event-form.css">
+</head>
+
+<body>
+
+    <!-- Header Controls: Settings & Theme Toggle -->
+    <div class="header-controls">
+        <button id="themeToggle" class="control-btn" aria-label="Toggle Dark Mode">
+            <i class="fa-solid fa-sun sun-icon"></i>
+        </button>
+    </div>
+
+    <div class="container">
+
+        <!-- Form Header Card -->
+        <div class="form-header-card">
+            <div class="header-banner"></div>
+            <div class="header-content">
+                <img src="" alt="Logo" class="club-logo-img" id="dynamicLogo" style="display:none;">
+
+                <div class="header-text-wrapper" id="headerTextWrapper">
+                    <h1 class="form-title" id="dynamicFormTitle">Registration Form</h1>
+                    <p class="form-subtitle" id="dynamicFormDescription" style="display:none;"></p>
+                </div>
+            </div>
+        </div>
+
+        <form id="registrationForm" class="registration-form">
+
+            <div class="form-section" id="formFieldsContainer">
+                <!-- Fields will be rendered here dynamically -->
+            </div>
+
+
+
+            <div class="form-actions" style="display:flex; justify-content:space-between; align-items:center;">
+                <button type="submit" id="submitBtn" class="submit-btn"><span class="btn-text">Submit</span></button>
+                <button type="button" class="clear-btn"
+                    onclick="document.getElementById('registrationForm').reset()">Clear
+                    form</button>
+            </div>
+
+        </form>
+
+        <div class="success-message" id="successMessage">
+            <h2 class="success-title">Registration Successful</h2>
+            <p class="form-subtitle">Your response has been recorded.</p>
+
+            <div class="whatsapp-group-container">
+                <p style="margin-bottom: 15px; color: var(--theme-text-main); font-weight: 500;">Please join the group
+                    for updates:</p>
+                <a href="https://chat.whatsapp.com/YOUR_LINK_HERE" class="whatsapp-link-btn" id="whatsappLink"
+                    target="_blank">
+                    <svg viewBox="0 0 32 32" width="20" height="20" fill="white">
+                        <path
+                            d="M16 2C8.28 2 2 8.28 2 16c0 2.82.74 5.45 2.03 7.74L2 30l6.45-2.03A13.94 13.94 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2z" />
+                    </svg>
+                    Join WhatsApp Group
+                </a>
+            </div>
+
+            <button class="success-btn" id="registerAnother">Submit another response</button>
+        </div>
+
+        <!-- Form Closed Message -->
+        <div class="form-closed-message" id="formClosedMessage">
+            <div class="closed-icon">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 class="closed-title">This Form is Closed</h2>
+            <p class="form-subtitle">This form is no longer accepting responses.</p>
+            <p class="form-subtitle" style="margin-top: 15px; font-size: 0.9rem;">
+                If you believe this is an error, please contact the form administrator.
+            </p>
+        </div>
+
+    </div>
+    <div class="form-footer">
+        <p id="copyrightText">© <span id="currentYear"></span> Your Organization. All rights reserved.</p>
+    </div>
+
+    <!-- Split JS Files for better organization -->
+    <script src="js/form-loader.js"></script>
+    <script src="js/dark-mode.js"></script>
+    <script src="js/form-logic.js"></script>
+    <script>
+        // Set current year dynamically
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
+</body>
+
+</html>
