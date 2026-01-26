@@ -51,6 +51,41 @@ document.addEventListener("DOMContentLoaded", () => {
         return; // Stop execution - don't render the form
     }
 
+    // --- RESPONSE LIMIT CHECK ---
+    const responseLimit = window.formContext && window.formContext.design && window.formContext.design.responseLimit;
+    if (responseLimit && parseInt(responseLimit) > 0) {
+        checkResponseLimit(parseInt(responseLimit));
+    }
+
+    async function checkResponseLimit(limit) {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const identifier = urlParams.get('form') || urlParams.get('id');
+            if (!identifier) return;
+
+            const res = await fetch(`/api/form-stats?id=${identifier}`);
+            if (res.ok) {
+                const stats = await res.json();
+                if (stats.count >= limit) {
+                    if (form) form.style.display = "none";
+                    if (formClosedMessage) {
+                        formClosedMessage.classList.add("show");
+                        // Optional: Update text to be specific
+                        const msg = formClosedMessage.querySelector('h2');
+                        if (msg) msg.textContent = "Form Limit Reached";
+                        const p = formClosedMessage.querySelector('p');
+                        if (p) p.textContent = "Thank you for your interest. This form is no longer accepting responses.";
+                    }
+                    const closeFormBtn = document.getElementById("closeFormBtn");
+                    if (closeFormBtn) closeFormBtn.style.display = "none";
+                    console.log("Form limit reached:", limit);
+                }
+            }
+        } catch (e) {
+            console.warn("Response limit check skipped (Backend offline)", e);
+        }
+    }
+
 
     // --- DEFAULT CONFIGURATION (Fallback) ---
     const defaultConfig = [
@@ -308,6 +343,13 @@ document.addEventListener("DOMContentLoaded", () => {
             );
             form.style.display = "none";
             successMessage.classList.add("show");
+
+            // Increment Response Count (Backend)
+            const urlParams = new URLSearchParams(window.location.search);
+            const identifier = urlParams.get('form') || urlParams.get('id');
+            if (identifier) {
+                fetch(`/api/form-stats?id=${identifier}&action=increment`, { method: 'POST' }).catch(() => { });
+            }
 
             // Dynamic Success Link
             const linkField = formConfig.find(f => f.type === 'success_link');

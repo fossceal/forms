@@ -61,6 +61,33 @@ export default {
 			);
 		}
 
+
+		// ---------- FORM STATS (Response Limiter) ----------
+		if (url.pathname === "/api/form-stats") {
+			const id = url.searchParams.get("id");
+			if (!id) return new Response("Missing Form ID", { status: 400, headers: corsHeaders });
+
+			// Initialize count if not exists (In-memory only)
+			// detailed-forms-map might be better if we had KV
+			if (!sessions.has("counts_" + id)) {
+				sessions.set("counts_" + id, 0);
+			}
+
+			if (request.method === "POST" && url.searchParams.get("action") === "increment") {
+				const current = sessions.get("counts_" + id) || 0;
+				sessions.set("counts_" + id, current + 1);
+				return new Response(JSON.stringify({ count: current + 1 }), {
+					headers: { "Content-Type": "application/json", ...corsHeaders }
+				});
+			}
+
+			// GET (default)
+			const count = sessions.get("counts_" + id) || 0;
+			return new Response(JSON.stringify({ count }), {
+				headers: { "Content-Type": "application/json", ...corsHeaders }
+			});
+		}
+
 		return new Response("Not Found", { status: 404, headers: corsHeaders });
 	},
 };

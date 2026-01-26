@@ -104,7 +104,8 @@ document.addEventListener("DOMContentLoaded", () => {
         themeColor: localStorage.getItem("themeColor") || "#db4437",
         banner: localStorage.getItem("headerBanner"),
         logoLight: localStorage.getItem("clubLogoLight"),
-        logoDark: localStorage.getItem("clubLogoDark")
+        logoDark: localStorage.getItem("clubLogoDark"),
+        responseLimit: localStorage.getItem("responseLimit") || ""
     };
 
     // --- STATE RESTORATION ---
@@ -119,8 +120,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // 2. Form Title & Description
         const formTitleInput = document.getElementById("formTitleInput");
         const formDescInput = document.getElementById("formDescriptionInput");
+        const responseLimitInput = document.getElementById("responseLimitInput");
         if (formTitleInput) formTitleInput.value = currentDesign.formTitle;
         if (formDescInput) formDescInput.value = currentDesign.formDescription;
+        if (responseLimitInput) responseLimitInput.value = currentDesign.responseLimit || "";
 
         // 3. Builder
         const storedFields = localStorage.getItem("formConfig");
@@ -167,10 +170,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // Collect current design settings
         const formTitleInput = document.getElementById("formTitleInput");
         const formDescInput = document.getElementById("formDescriptionInput");
+        const responseLimitInput = document.getElementById("responseLimitInput");
         const themeColorPicker = document.getElementById("themeColorPicker");
 
         currentDesign.formTitle = formTitleInput ? formTitleInput.value : "";
         currentDesign.formDescription = formDescInput ? formDescInput.value : "";
+        currentDesign.responseLimit = responseLimitInput ? responseLimitInput.value : "";
         currentDesign.themeColor = themeColorPicker ? themeColorPicker.value : "#db4437";
 
         // Auto-generate tab name from form title
@@ -317,9 +322,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const formDescInput = document.getElementById("formDescriptionInput");
                 const themeColorPicker = document.getElementById("themeColorPicker");
                 const colorValue = document.getElementById("colorValue");
+                const responseLimitInput = document.getElementById("responseLimitInput");
 
                 if (formTitleInput) formTitleInput.value = currentDesign.formTitle;
                 if (formDescInput) formDescInput.value = currentDesign.formDescription;
+                if (responseLimitInput) responseLimitInput.value = currentDesign.responseLimit || "";
                 if (themeColorPicker) themeColorPicker.value = currentDesign.themeColor;
                 if (colorValue) colorValue.innerText = currentDesign.themeColor;
 
@@ -539,6 +546,15 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem("formConfig", JSON.stringify(fields));
     }
 
+    // --- RESPONSE LIMIT LISTENER ---
+    const responseLimitInput = document.getElementById("responseLimitInput");
+    if (responseLimitInput) {
+        responseLimitInput.addEventListener("input", (e) => {
+            currentDesign.responseLimit = e.target.value;
+            localStorage.setItem("responseLimit", e.target.value);
+        });
+    }
+
     // --- THEME & INTEGRATION LISTENERS ---
     if (colorPicker) {
         colorPicker.addEventListener("input", (e) => {
@@ -698,7 +714,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         sheetTab: finalTab, // THIS is what determines the Google Sheet tab!
                         scriptUrl: scriptUrl,
                         config: defaultFields,
-                        design: { ...currentDesign },
+                        design: { ...currentDesign, responseLimit: "" }, // Default empty limit
                         status: "open", // New forms are open by default
                         date: new Date().toLocaleDateString()
                     };

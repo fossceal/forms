@@ -4,7 +4,8 @@ export default {
         // Allow ONLY specific origin (e.g., https://admin.yourdomain.com)
         // For development, you might use localhost, but for production, restrict it.
         // NOTE: Replace 'https://admin.yourdomain.com' with your ACTUAL domain.
-        const allowedOrigin = "https://admin.yourdomain.com";
+        const allowedOrigin = "https://foss.ceal.in";
+
 
         const corsHeaders = {
             "Access-Control-Allow-Origin": allowedOrigin,
