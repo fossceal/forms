@@ -6,7 +6,7 @@ compatibility_date = "2026-01-26"
 # DEFAULT (development)
 # =========================
 [vars]
-ALLOWED_ORIGIN = "http://localhost:5500"
+ALLOWED_ORIGIN = "https://foss.ceal.in"
 ENVIRONMENT = "development"
 
 [[d1_databases]]

@@ -77,7 +77,7 @@ export default {
 		const origin = request.headers.get("Origin");
 
 		// CORS
-		const allowedOrigins = [env.ALLOWED_ORIGIN, "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5500", "http://127.0.0.1:5500"];
+		const allowedOrigins = [env.ALLOWED_ORIGIN, "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5500", "http://127.0.0.1:5500", "https://foss.ceal.in"];
 		const isOriginAllowed = !origin || allowedOrigins.includes(origin);
 		const corsOrigin = isOriginAllowed ? origin : env.ALLOWED_ORIGIN;
 

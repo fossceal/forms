@@ -214,8 +214,8 @@ server.listen(PORT, () => {
     console.log(`
 🚀 Local Development Server Running
 
-📍 Admin Panel: http://localhost:${PORT}/admin.html
-📍 API Endpoint: http://localhost:${PORT}/api/
+📍 Admin Panel: https://foss.ceal.in/admin.html
+📍 API Endpoint: https://foss.ceal.in/api/
 
 🔑 Admin Password: ${ADMIN_PASSWORD}
 
