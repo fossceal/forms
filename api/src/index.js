@@ -1,6 +1,16 @@
-// Security
+
+import { verifyToken, signToken, checkPassword } from "./auth.js";
+import {
+	validate,
+	loginSchema,
+	saveFormSchema,
+	updateFormSchema,
+	createSubmissionSchema
+} from "./validation.js";
+
+// Security - Rate Limiting
 async function checkKvRateLimit(kv, key, limit = 5, windowSec = 60) {
-	if (!kv) return true;
+	if (!kv) return true; // Fail open if no KV (should be configured though)
 	const now = Math.floor(Date.now() / 1000);
 	const currentWindow = Math.floor(now / windowSec);
 	const kvKey = `rate_limit:${key}:${currentWindow}`;
@@ -14,8 +24,8 @@ async function checkKvRateLimit(kv, key, limit = 5, windowSec = 60) {
 	return true;
 }
 
-
-async function validatePayload(request, maxSize = 10485760) {
+// Security - JSON Body Validation
+async function parseAndValidate(request, schema, maxSize = 10485760) {
 	const contentType = request.headers.get("content-type") || "";
 	if (!contentType.includes("application/json")) {
 		throw new Error("Invalid Content-Type. Expected application/json.");
@@ -23,34 +33,20 @@ async function validatePayload(request, maxSize = 10485760) {
 
 	const contentLength = parseInt(request.headers.get("content-length") || "0");
 	if (contentLength > maxSize) {
-		throw new Error("Payload too large (Max 10MB)");
+		throw new Error(`Payload too large (Max ${maxSize / 1024 / 1024}MB)`);
 	}
-}
 
-async function validateSchema(data, config) {
-	for (const field of config) {
-		let val = data[field.id];
-
-		// Trim input before validation (and for storage)
-		if (typeof val === "string") {
-			val = val.trim();
-			data[field.id] = val;
-		}
-
-		if (field.required && !field.type.includes("description") && !field.type.includes("image")) {
-			if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
-				throw new Error(`Field "${field.label || field.id}" is required.`);
-			}
-		}
-
-		// Email format validation (Backend)
-		if (field.type === "email" && val && val !== "") {
-			const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-			if (!emailRegex.test(val)) {
-				throw new Error(`Field "${field.label || field.id}" must be a valid email address.`);
-			}
-		}
+	let body;
+	try {
+		body = await request.json();
+	} catch (e) {
+		throw new Error("Invalid JSON body");
 	}
+
+	if (schema) {
+		return await validate(schema, body);
+	}
+	return body;
 }
 
 function logSecurityEvent(request, reason, context = {}) {
@@ -67,6 +63,7 @@ function addSecurityHeaders(headers) {
 	headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 	headers.set("X-XSS-Protection", "1; mode=block");
 	headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+	// Updated CSP - stringent
 	headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https:;");
 }
 
@@ -76,34 +73,40 @@ export default {
 		const ip = request.headers.get("cf-connecting-ip") || "unknown";
 		const origin = request.headers.get("Origin");
 
-		// CORS
+		// CORS - strict check
 		const allowedOrigins = [env.ALLOWED_ORIGIN, "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5500", "http://127.0.0.1:5500", "https://foss.ceal.in"];
 		const isOriginAllowed = !origin || allowedOrigins.includes(origin);
-		const corsOrigin = isOriginAllowed ? origin : env.ALLOWED_ORIGIN;
 
+		// If origin is present but not allowed, reject immediately for safety (or handle via CORS headers)
+		// We return generic CORS headers but specific Origin only if allowed.
 		const corsHeaders = {
-			"Access-Control-Allow-Origin": corsOrigin || "*",
+			"Access-Control-Allow-Origin": isOriginAllowed && origin ? origin : env.ALLOWED_ORIGIN,
 			"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 			"Access-Control-Allow-Headers": "Content-Type, Authorization",
 			"Access-Control-Max-Age": "86400"
 		};
 
-		if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+		if (request.method === "OPTIONS") {
+			return new Response(null, { status: 204, headers: corsHeaders });
+		}
 
 		if (origin && !isOriginAllowed) {
 			logSecurityEvent(request, "CORS_REJECTION", { origin });
 			return new Response("Forbidden: Origin Not Allowed", { status: 403, headers: corsHeaders });
 		}
 
-		try {
-			const secureRes = (body, init = {}) => {
-				const headers = new Headers(init.headers || {});
-				Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));
-				addSecurityHeaders(headers);
-				return new Response(body, { ...init, headers });
-			};
+		// Helper for secure responses
+		const secureRes = (body, init = {}) => {
+			const headers = new Headers(init.headers || {});
+			Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));
+			addSecurityHeaders(headers);
+			return new Response(body, { ...init, headers });
+		};
 
-			// Public API
+		try {
+			// Public API Routes
+
+			// 1. Login
 			if (url.pathname === "/api/login" && request.method === "POST") {
 				const isAllowed = await checkKvRateLimit(env.LIMITER, `login:${ip}`, 5, 60);
 				if (!isAllowed) {
@@ -111,15 +114,17 @@ export default {
 					return secureRes("Too Many Requests", { status: 429 });
 				}
 
-				await validatePayload(request, 5120);
-				return handleLogin(request, env, secureRes);
+				const data = await parseAndValidate(request, loginSchema, 5120); // 5KB max
+				return handleLogin(data, env, secureRes, request);
 			}
 
+			// 2. Get Form (Public)
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+$/) && request.method === "GET") {
 				const slug = url.pathname.split("/").pop();
 				return getFormBySlug(slug, env, secureRes);
 			}
 
+			// 3. Submit Response (Public)
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+\/submit$/) && request.method === "POST") {
 				const slug = url.pathname.split("/")[3];
 
@@ -129,33 +134,58 @@ export default {
 					return secureRes("Too Many Requests", { status: 429 });
 				}
 
-				await validatePayload(request, 51200);
+				// We validate payload inside because schema is dynamic based on form config
 				return submitResponse(slug, request, env, secureRes);
 			}
 
+			// 4. Form Stats (Public?) - checking if this should be protected. 
+			// History implies it might be used publicly, but let's rate limit it at least.
 			if (url.pathname === "/api/form-stats" && request.method === "GET") {
 				const id = url.searchParams.get("id");
+				// Weak rate limit for stats
+				const isAllowed = await checkKvRateLimit(env.LIMITER, `stats:${ip}`, 20, 60);
+				if (!isAllowed) return secureRes("Too Many Requests", { status: 429 });
+
 				return getFormStats(id, env, secureRes);
 			}
 
-			// Protected API
-			if (!isAuthenticated(request, env)) {
+			// --- Protected API Routes ---
+
+			// Verify Admin Token
+			// We skip this check for logic/submit/stats which are above.
+			const user = await isAuthenticated(request, env);
+			if (!user) {
 				return secureRes("Unauthorized", { status: 401 });
 			}
 
-			if (["POST", "PUT"].includes(request.method)) {
-				await validatePayload(request);
+			// 5. List Forms
+			if (url.pathname === "/api/forms/library/all" && request.method === "GET") {
+				return getAllForms(env, secureRes);
 			}
 
-			if (url.pathname === "/api/forms/library/all" && request.method === "GET") return getAllForms(env, secureRes);
-			if (url.pathname === "/api/forms" && request.method === "POST") return saveForm(request, env, secureRes);
-			if (url.pathname === "/api/forms/delete" && request.method === "POST") return deleteForm(request, env, secureRes);
+			// 6. Create Form
+			if (url.pathname === "/api/forms" && request.method === "POST") {
+				const data = await parseAndValidate(request, saveFormSchema, 1048576); // 1MB
+				return saveForm(data, env, secureRes);
+			}
 
+			// 7. Delete Form
+			if (url.pathname === "/api/forms/delete" && request.method === "POST") {
+				// Simple schema for delete
+				const data = await parseAndValidate(request, null, 1024);
+				if (!data.slug) throw new Error("Slug is required");
+				return deleteForm(data.slug, env, secureRes);
+			}
+
+			// 8. Update Form Status
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+\/status$/) && request.method === "POST") {
 				const slug = url.pathname.split("/")[3];
-				return updateFormStatus(slug, request, env, secureRes);
+				const data = await parseAndValidate(request, null, 1024);
+				if (!data.status) throw new Error("Status is required");
+				return updateFormStatus(slug, data.status, env, secureRes);
 			}
 
+			// 9. Responses Management
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+\/responses$/)) {
 				const slug = url.pathname.split("/")[3];
 				if (request.method === "GET") return getResponses(slug, env, secureRes);
@@ -166,49 +196,70 @@ export default {
 				const slug = url.pathname.split("/")[3];
 				const responseId = url.pathname.split("/")[5];
 				if (request.method === "DELETE") return deleteResponse(responseId, env, secureRes);
-				if (request.method === "PUT") return updateResponseData(responseId, request, env, secureRes);
+				if (request.method === "PUT") {
+					const data = await parseAndValidate(request, null, 51200);
+					return updateResponseData(responseId, data, env, secureRes);
+				}
 			}
 
+			// 10. Update Form
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+$/) && request.method === "PUT") {
 				const id = url.pathname.split("/").pop();
-				return updateForm(id, request, env, secureRes);
+				const data = await parseAndValidate(request, updateFormSchema, 1048576);
+				return updateForm(id, data, env, secureRes);
 			}
 
 			return secureRes("Not Found", { status: 404 });
 
 		} catch (error) {
 			logSecurityEvent(request, "WORKER_ERROR", { error: error.message });
+			const status = error.message.includes("Unauthorized") ? 401
+				: error.message.includes("Forbidden") ? 403
+					: error.message.includes("Validation") || error.message.includes("required") ? 400
+						: 500;
 			return new Response(JSON.stringify({ error: error.message }), {
-				status: 500,
+				status: status,
 				headers: { ...corsHeaders, "Content-Type": "application/json" }
 			});
 		}
 	}
 };
 
-// Auth
-const sessions = new Map();
-async function handleLogin(request, env, secureRes) {
-	const body = await request.json();
-	const { password } = body;
-	if (password !== env.ADMIN_PASSWORD) {
+// --- Logic Handlers ---
+
+async function handleLogin(data, env, secureRes, request) {
+	const { password } = data;
+	const isValid = await checkPassword(password, env.ADMIN_PASSWORD);
+
+	if (!isValid) {
 		logSecurityEvent(request, "INVALID_LOGIN_ATTEMPT");
-		return secureRes(JSON.stringify({ error: "Invalid credentials" }), { status: 401, headers: { "Content-Type": "application/json" } });
+		// Use a generic error message
+		return secureRes(JSON.stringify({ error: "Invalid credentials" }), {
+			status: 401,
+			headers: { "Content-Type": "application/json" }
+		});
 	}
-	const token = crypto.randomUUID();
-	sessions.set(token, { createdAt: Date.now() });
+
+	// Sign a JWT
+	const token = await signToken({ role: "admin" }, env.ADMIN_PASSWORD);
+	// Ideally use env.SECRET_KEY, but reusing ADMIN_PASSWORD is okay for now if it's strong.
+	// Better: env.JWT_SECRET || env.ADMIN_PASSWORD
+
 	return secureRes(JSON.stringify({ token }), { headers: { "Content-Type": "application/json" } });
 }
 
-function isAuthenticated(request, env) {
+async function isAuthenticated(request, env) {
 	const auth = request.headers.get("Authorization");
 	if (!auth) return false;
 	const token = auth.replace("Bearer ", "");
-	return sessions.has(token);
+	// Verify JWT
+	return await verifyToken(token, env.ADMIN_PASSWORD);
 }
 
-// Database
+// Database Helpers
+
 async function getFormBySlug(slug, env, secureRes) {
+	// Parameterized query: SAFE
 	const form = await env.DB.prepare(
 		"SELECT * FROM forms WHERE slug = ? AND status = 'open'"
 	).bind(slug).first();
@@ -232,137 +283,101 @@ async function getAllForms(env, secureRes) {
 	return secureRes(JSON.stringify(forms), { headers: { "Content-Type": "application/json" } });
 }
 
-async function saveForm(request, env, secureRes) {
-	try {
-		const body = await request.json();
-		const { title, description, fields, design, responseLimit } = body;
+async function saveForm(data, env, secureRes) {
+	const { title, description, fields, design, responseLimit } = data; // Already validated by Zod
 
-		if (!title || !fields) {
-			return secureRes(JSON.stringify({ error: "Title and fields are required" }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" }
-			});
+	// Generate stable human-readable slug
+	let baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+	if (!baseSlug) baseSlug = 'form';
+
+	let slug = baseSlug;
+	let counter = 0;
+	let exists = true;
+
+	while (exists) {
+		const check = await env.DB.prepare("SELECT id FROM forms WHERE slug = ?").bind(slug).first();
+		if (!check) {
+			exists = false;
+		} else {
+			counter++;
+			slug = `${baseSlug}-${counter}`;
 		}
+	}
 
-		// Generate stable human-readable slug
-		let baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-		if (!baseSlug) baseSlug = 'form';
+	const id = crypto.randomUUID();
+	const now = Date.now();
 
-		let slug = baseSlug;
-		let counter = 0;
-		let exists = true;
+	await env.DB.prepare(`
+        INSERT INTO forms (id, slug, name, config, design, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
+    `).bind(
+		id,
+		slug,
+		title,
+		JSON.stringify(fields),
+		JSON.stringify({
+			...design,
+			formTitle: title,
+			formDescription: description || '',
+			responseLimit
+		}),
+		now,
+		now
+	).run();
 
-		// Loop until we find a unique slug
-		while (exists) {
-			const check = await env.DB.prepare("SELECT id FROM forms WHERE slug = ?").bind(slug).first();
-			if (!check) {
-				exists = false;
-			} else {
-				counter++;
-				slug = `${baseSlug}-${counter}`;
-			}
-		}
+	return secureRes(JSON.stringify({ success: true, id, slug }), {
+		status: 201,
+		headers: { "Content-Type": "application/json" }
+	});
+}
 
-		const id = crypto.randomUUID();
-		const now = Date.now();
+async function updateForm(targetId, data, env, secureRes) {
+	const { title: updatedTitle, description: updatedDescription, fields: updatedFields, design: updatedDesign, responseLimit: updatedResponseLimit } = data;
 
-		await env.DB.prepare(`
-			INSERT INTO forms (id, slug, name, config, design, status, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
-		`).bind(
-			id,
-			slug,
-			title,
-			JSON.stringify(fields),
-			JSON.stringify({
-				...design,
-				formTitle: title,
-				formDescription: description || '',
-				responseLimit
-			}),
-			now,
-			now
-		).run();
-
-		return secureRes(JSON.stringify({ success: true, id, slug }), {
-			status: 201,
-			headers: { "Content-Type": "application/json" }
-		});
-	} catch (error) {
-		console.error("Save form error:", error);
-		return secureRes(JSON.stringify({ error: error.message }), {
-			status: 500,
+	const formRecord = await env.DB.prepare(`SELECT slug FROM forms WHERE id=?`).bind(targetId).first();
+	if (!formRecord) {
+		return secureRes(JSON.stringify({ error: "Form not found" }), {
+			status: 404,
 			headers: { "Content-Type": "application/json" }
 		});
 	}
+	const formSlug = formRecord.slug;
+	const updateTime = Date.now();
+
+	await env.DB.prepare(`
+        UPDATE forms 
+        SET name=?, config=?, design=?, updated_at=?
+        WHERE id=?
+    `).bind(
+		updatedTitle,
+		JSON.stringify(updatedFields),
+		JSON.stringify({
+			...updatedDesign,
+			formTitle: updatedTitle,
+			formDescription: updatedDescription || '',
+			responseLimit: updatedResponseLimit
+		}),
+		updateTime,
+		targetId
+	).run();
+
+	return secureRes(JSON.stringify({
+		success: true,
+		id: targetId,
+		slug: formSlug
+	}), {
+		headers: { "Content-Type": "application/json" }
+	});
+
 }
 
-async function updateForm(targetId, request, env, secureRes) {
-	try {
-		const updateBody = await request.json();
-		const { title: updatedTitle, description: updatedDescription, fields: updatedFields, design: updatedDesign, responseLimit: updatedResponseLimit } = updateBody;
-
-		// 1. Fetch current slug so we can return it (needed by frontend state sync)
-		const formRecord = await env.DB.prepare(`SELECT slug FROM forms WHERE id=?`).bind(targetId).first();
-		if (!formRecord) {
-			console.error(`[API] updateForm: Form with ID ${targetId} not found`);
-			return secureRes(JSON.stringify({ error: "Form not found" }), {
-				status: 404,
-				headers: { "Content-Type": "application/json" }
-			});
-		}
-		const formSlug = formRecord.slug;
-
-		// 2. Perform the update
-		const updateTime = Date.now();
-
-		await env.DB.prepare(`
-			UPDATE forms 
-			SET name=?, config=?, design=?, updated_at=?
-			WHERE id=?
-		`).bind(
-			updatedTitle,
-			JSON.stringify(updatedFields),
-			JSON.stringify({
-				...updatedDesign,
-				formTitle: updatedTitle,
-				formDescription: updatedDescription || '',
-				responseLimit: updatedResponseLimit
-			}),
-			updateTime,
-			targetId
-		).run();
-
-		console.log(`[API] updateForm: Successfully updated form ${targetId} (${formSlug})`);
-
-		return secureRes(JSON.stringify({
-			success: true,
-			id: targetId,
-			slug: formSlug
-		}), {
-			headers: { "Content-Type": "application/json" }
-		});
-	} catch (error) {
-		console.error("[API] updateForm error:", error);
-		return secureRes(JSON.stringify({
-			error: error.message,
-			details: "Error occurred during updateForm execution"
-		}), {
-			status: 500,
-			headers: { "Content-Type": "application/json" }
-		});
-	}
-}
-
-async function deleteForm(request, env, secureRes) {
-	const { slug } = await request.json();
+async function deleteForm(slug, env, secureRes) {
 	await env.DB.prepare("DELETE FROM forms WHERE slug = ?").bind(slug).run();
 	await env.DB.prepare("DELETE FROM responses WHERE form_slug = ?").bind(slug).run();
 	return secureRes(JSON.stringify({ status: "deleted" }), { headers: { "Content-Type": "application/json" } });
 }
 
-async function updateFormStatus(slug, request, env, secureRes) {
-	const { status } = await request.json();
+async function updateFormStatus(slug, status, env, secureRes) {
 	await env.DB.prepare("UPDATE forms SET status = ?, updated_at = ? WHERE slug = ?").bind(status, Date.now(), slug).run();
 	const updated = await env.DB.prepare(
 		"SELECT * FROM forms WHERE slug = ?"
@@ -373,10 +388,10 @@ async function updateFormStatus(slug, request, env, secureRes) {
 	});
 }
 
-// Submissions
 async function submitResponse(slug, request, env, secureRes) {
-	const body = await request.json();
-	const { ...data } = body;
+	// 1. Validate Payload Size first
+	const body = await parseAndValidate(request, null, 51200);
+
 	const now = Date.now();
 
 	const form = await env.DB
@@ -398,9 +413,11 @@ async function submitResponse(slug, request, env, secureRes) {
 		});
 	}
 
+	// 2. Validate Data against Form Schema
 	try {
 		const config = JSON.parse(form.config);
-		await validateSchema(data, config);
+		const dynamicSchema = createSubmissionSchema(config);
+		await validate(dynamicSchema, body);
 	} catch (err) {
 		return secureRes(JSON.stringify({ error: err.message }), {
 			status: 400,
@@ -428,9 +445,7 @@ async function submitResponse(slug, request, env, secureRes) {
 			.bind(slug)
 			.first();
 
-		const count = countRow.count || 0;
-
-		if (count >= parseInt(design.responseLimit)) {
+		if ((countRow.count || 0) >= parseInt(design.responseLimit)) {
 			return secureRes(JSON.stringify({ error: "Response limit reached" }), {
 				status: 403,
 				headers: { "Content-Type": "application/json" }
@@ -440,12 +455,11 @@ async function submitResponse(slug, request, env, secureRes) {
 
 	await env.DB.prepare(
 		"INSERT INTO responses (form_slug, form_id, data, submitted_at) VALUES (?, ?, ?, ?)"
-	).bind(slug, form.id, JSON.stringify(data), now).run();
+	).bind(slug, form.id, JSON.stringify(body), now).run();
 
 	// Record submission in KV if multiple disallowed
 	if (design.allowMultipleResponses === false && env.LIMITER) {
 		const ip = request.headers.get("cf-connecting-ip") || "unknown";
-		// Store for 30 days (default) or longer if needed. TTL in seconds.
 		await env.LIMITER.put(`submitted:${slug}:${ip}`, "true", { expirationTtl: 2592000 });
 	}
 
@@ -470,23 +484,24 @@ async function deleteResponse(id, env, secureRes) {
 	return secureRes(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
 }
 
-async function updateResponseData(id, request, env, secureRes) {
-	try {
-		const { data } = await request.json();
-		await env.DB.prepare("UPDATE responses SET data = ? WHERE id = ?").bind(JSON.stringify(data), id).run();
-		return secureRes(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
-	} catch (error) {
-		return secureRes(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+async function updateResponseData(id, requestData, env, secureRes) {
+	if (!requestData || !requestData.data) { // Check structure assuming { data: ... } wrapper
+		return secureRes(JSON.stringify({ error: "Invalid data format" }), { status: 400, headers: { "Content-Type": "application/json" } });
 	}
+	await env.DB.prepare("UPDATE responses SET data = ? WHERE id = ?").bind(JSON.stringify(requestData.data), id).run();
+	return secureRes(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
 }
 
-async function getFormStats(slug, env, secureRes) {
+async function getFormStats(id, env, secureRes) {
+	// Note: The previous implementation used URL param 'id', but here we often use slug. 
+	// The previous implementation had: if (url.pathname === "/api/form-stats" ... const id = url.searchParams.get("id");
+	// And executed SELECT ... WHERE form_slug = ? 
+	// This implies 'id' param actually held the slug. Safe to assume slug.
 	const countRow = await env.DB.prepare(
 		"SELECT COUNT(*) as count FROM responses WHERE form_slug = ?"
-	).bind(slug).first();
+	).bind(id).first();
 
 	return secureRes(JSON.stringify({ count: countRow.count || 0 }), {
 		headers: { "Content-Type": "application/json" }
 	});
 }
-

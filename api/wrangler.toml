@@ -14,9 +14,10 @@ binding = "DB"
 database_name = "custom-forms-db"
 database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
 
-# [[kv_namespaces]]
-# binding = "LIMITER"
-# id = "REAL_KV_NAMESPACE_ID"
+
+[[kv_namespaces]]
+binding = "LIMITER"
+id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa" # Fallback to same ID or user needs to replace
 
 # =========================
 # PRODUCTION ENVIRONMENT
@@ -33,6 +34,7 @@ binding = "DB"
 database_name = "custom-forms-db"
 database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
 
-# [[env.production.kv_namespaces]]
-# binding = "LIMITER"
-# id = "REAL_KV_NAMESPACE_ID"
+[[env.production.kv_namespaces]]
+binding = "LIMITER"
+id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa" # User must replace this
+
