@@ -1,0 +1,38 @@
+name = "custom-forms-api"
+main = "src/index.js"
+compatibility_date = "2026-01-26"
+
+# =========================
+# DEFAULT (development)
+# =========================
+[vars]
+ALLOWED_ORIGIN = "http://localhost:5500"
+ENVIRONMENT = "development"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "custom-forms-db"
+database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
+
+# [[kv_namespaces]]
+# binding = "LIMITER"
+# id = "REAL_KV_NAMESPACE_ID"
+
+# =========================
+# PRODUCTION ENVIRONMENT
+# =========================
+[env.production]
+name = "custom-forms-api"  # IMPORTANT: same Worker name
+
+[env.production.vars]
+ALLOWED_ORIGIN = "https://foss.ceal.in"
+ENVIRONMENT = "production"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "custom-forms-db"
+database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
+
+# [[env.production.kv_namespaces]]
+# binding = "LIMITER"
+# id = "REAL_KV_NAMESPACE_ID"

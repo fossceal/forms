@@ -4,10 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Admin Dashboard | Custom Forms</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/admin.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script type="module" src="js/admin.js"></script>
+    <script src="js/dark-mode.js"></script>
 </head>
 
 <body>
@@ -17,7 +23,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h2>Admin Panel</h2>
-                <button id="adminThemeToggle"
+                <button id="themeToggle"
                     style="background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1.2rem;">
                     <i class="fa-solid fa-moon"></i>
                 </button>
@@ -27,16 +33,14 @@
                     <li class="nav-item active" data-tab="library">
                         <i class="fa-solid fa-folder-open"></i> My Forms
                     </li>
-                    <li class="nav-item" data-tab="integrations">
-                        <i class="fa-solid fa-plug"></i> Connect & Save
+                    <li class="nav-item hidden" data-tab="builder">
+                        <i class="fa-solid fa-pen-to-square"></i> Form Builder
+                    </li>
+                    <li class="nav-item hidden" data-tab="responses">
+                        <i class="fa-solid fa-table"></i> Responses
                     </li>
                 </ul>
             </nav>
-            <div class="sidebar-footer">
-                <a href="event-form.html" target="_blank" class="view-form-btn">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i> View Live Form
-                </a>
-            </div>
         </aside>
 
         <!-- Main Content -->
@@ -45,28 +49,24 @@
 
                 <!-- SECTION: MY FORMS (LIBRARY) -->
                 <section id="library" class="tab-pane active">
-                    <div class="card">
-                        <div
-                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                            <h3>My Saved Forms</h3>
-                            <button id="refreshLibraryBtn" class="btn btn-sm btn-outline-secondary"
-                                title="Refresh List"><i class="fa-solid fa-rotate"></i></button>
-                        </div>
-                        <p class="hint">Library of your saved form configurations. Load one to edit it.</p>
-
-                        <div id="formsLibraryList"
-                            style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:20px; margin-top:20px;">
-                            <!-- Dynamic Forms Cards -->
-                            <div style="text-align:center; padding:40px; color:#999; grid-column: 1/-1;">
-                                <i class="fa-regular fa-folder-open" style="font-size:2rem; margin-bottom:10px;"></i>
-                                <p>No saved forms yet.</p>
-                            </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h3 style="margin:0;"><i class="fa-solid fa-folder-open"></i> My Forms</h3>
+                        <button id="addFormBtn" class="btn btn-primary">
+                            <i class="fa-solid fa-plus"></i> Add Form
+                        </button>
+                    </div>
+                    <div id="formsLibraryList"
+                        style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:20px; margin-top:20px;">
+                        <!-- Dynamic Forms Cards -->
+                        <div style="text-align:center; padding:40px; color:#999; grid-column: 1/-1;">
+                            <i class="fa-regular fa-folder-open" style="font-size:2rem; margin-bottom:10px;"></i>
+                            <p>No saved forms yet.</p>
                         </div>
                     </div>
                 </section>
 
                 <!-- SECTION: BUILDER -->
-                <section id="builder" class="tab-pane builder-hidden">
+                <section id="builder" class="tab-pane">
                     <div class="card">
                         <h3>Form Builder</h3>
                         <p class="hint">Add, edit, and reorder form fields. Drag to reorder.</p>
@@ -90,8 +90,14 @@
                         </div>
 
                         <div class="form-group">
+                            <label>Webpage Title</label>
+                            <input type="text" id="webTitleInput" placeholder="e.g., Workshop | Register Now">
+                            <p class="hint">The title as it appears in the browser tab.</p>
+                        </div>
+
+                        <div class="form-group">
                             <label>Form Description</label>
-                            <textarea id="formDescriptionInput" rows="3"
+                            <textarea id="formDescInput" rows="3"
                                 placeholder="e.g., Join us for an amazing workshop experience!"></textarea>
                             <p class="hint">Optional description shown below the title.</p>
                         </div>
@@ -101,6 +107,15 @@
                             <input type="number" id="responseLimitInput" placeholder="e.g., 100" min="1">
                             <p class="hint">Automatically close the form after this many responses. Leave empty for no
                                 limit.</p>
+                        </div>
+
+                        <div class="form-group checkbox-toggle" style="margin-top: 15px;">
+                            <label style="display:flex; align-items:center; cursor:pointer; font-weight: 500;">
+                                <input type="checkbox" id="allowMultipleResponsesInput" checked
+                                    style="width:20px; height:20px; margin-right:10px;">
+                                Allow multiple responses
+                            </label>
+                            <p class="hint">Shows a "Submit another response" button on the success screen.</p>
                         </div>
 
                         <hr style="margin:20px 0; border:0; border-top:1px solid var(--border);">
@@ -135,66 +150,88 @@
                                 <label style="font-size:0.9rem; font-weight:500;">Dark Mode Logo</label>
                                 <input type="file" id="logoDarkUpload" accept="image/*">
                             </div>
-
-                            <button id="removeLogosBtn" class="btn btn-outline-danger btn-sm"
-                                style="margin-top:5px; width:100%;">
-                                Remove Logos
-                            </button>
                         </div>
 
-                        <!-- Save Button at Bottom -->
-                        <button id="saveToLibraryBtn" class="btn btn-success"
-                            style="width:100%; margin-top:20px; font-size:1.1rem; padding:12px;">
-                            <i class="fa-solid fa-floppy-disk"></i> Save to Library
+                        <hr style="margin:20px 0; border:0; border-top:1px solid var(--border);">
+
+                        <div class="config-card">
+                            <div class="config-title">
+                                <span><i class="fa-solid fa-cloud"></i> Cloudinary Asset Storage</span>
+                                <a href="https://cloudinary.com/documentation/unsigned_upload" target="_blank"
+                                    id="cloudinaryHelpLink" class="help-badge">
+                                    <i class="fa-solid fa-circle-info"></i> How to connect?
+                                </a>
+                            </div>
+                            <p class="hint" style="margin-bottom:20px; font-size: 0.85rem;">Required for the
+                                <strong>"File
+                                    Upload"</strong> field type to store assets securely.</p>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label>Cloud Name</label>
+                                    <input type="text" id="cloudinaryCloudName" class="cloudinary-input"
+                                        placeholder="e.g., dxk7sh8w">
+                                </div>
+                                <div>
+                                    <label>Upload Preset</label>
+                                    <input type="text" id="cloudinaryPreset" class="cloudinary-input"
+                                        placeholder="e.g., ml_default">
+                                </div>
+                            </div>
+
+                            <p class="hint" style="margin-top:5px; font-style: italic;">
+                                <i class="fa-solid fa-key" style="font-size: 0.75rem; margin-right: 4px;"></i>
+                                Find these in Cloudinary Dashboard > Settings > Upload
+                            </p>
+                        </div>
+
+                        <button id="removeLogosBtn" class="btn btn-outline-danger btn-sm"
+                            style="margin-top:5px; width:100%;">
+                            Remove Logos
                         </button>
                     </div>
+
+                    <!-- Save Button at Bottom -->
+                    <button id="saveToLibraryBtn" class="btn btn-success"
+                        style="margin-top:20px; font-size:1.1rem; padding:15px 30px; width:100%; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Form to Library
+                    </button>
                 </section>
 
-                <!-- SECTION: CONNECT & SAVE -->
-                <section id="integrations" class="tab-pane">
-                    <div class="card">
-                        <h3>Connection Settings</h3>
-                        <p class="hint" style="margin-bottom:20px;">Link your form to Google Sheets.</p>
-
-                        <div class="form-group"
-                            style="background:var(--bg-secondary); padding:15px; border-radius:var(--radius);">
-                            <label style="color:var(--theme-primary); font-weight:600;">1. View Responses Link</label>
-                            <input type="text" id="spreadsheetUrlInput"
-                                placeholder="https://docs.google.com/spreadsheets/d/...">
-                            <div style="margin-top:10px;">
-                                <button id="testSheetBtn" class="btn btn-outline-primary">
-                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Test Link &
-                                    Open Sheet
+                <!-- SECTION: RESPONSES (Integrated Tab) -->
+                <section id="responses" class="tab-pane">
+                    <div id="responsesPanel" class="responses-panel">
+                        <div class="responses-header">
+                            <h2>Responses</h2>
+                            <div>
+                                <button id="exportCsvBtn" class="btn btn-outline-primary btn-sm">
+                                    <i class="fa-solid fa-file-csv"></i> Export CSV
+                                </button>
+                                <button id="exportPdfBtn" class="btn btn-outline-primary btn-sm">
+                                    <i class="fa-solid fa-file-pdf"></i> Export PDF
+                                </button>
+                                <button id="clearResponsesBtn" class="btn btn-outline-danger btn-sm">
+                                    <i class="fa-solid fa-trash-can"></i> Clear All
+                                </button>
+                                <button onclick="closeResponses()" class="btn btn-outline-danger btn-sm">
+                                    <i class="fa-solid fa-xmark"></i> Close
                                 </button>
                             </div>
-                            <p class="hint"><strong>Optional:</strong> This creates a shortcut for you
-                                to view your data.</p>
                         </div>
 
-                        <hr style="margin:30px 0; border:0; border-top:1px solid var(--border);">
-
-                        <div class="form-group">
-                            <label style="color:var(--text-main); font-weight:600;">2. Backend
-                                Connection URL (API)</label>
-                            <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/...">
-                            <p class="hint"><strong>Required:</strong> The Web App URL from your Google
-                                Apps Script deployment.<br>
-                                This is the engine that actually saves your data.</p>
-                        </div>
-
-                        <div class="form-group" style="margin-top:20px;">
-                            <button id="newTargetBtn" class="btn btn-secondary" style="width:100%;">
-                                <i class="fa-solid fa-plus"></i> New Form
-                            </button>
-                            <p class="hint" style="margin-top:8px;">Create a new form with different
-                                settings. Each form gets its own tab in Google Sheets based on the Form
-                                Title.</p>
-                        </div>
+                        <div id="responsesMeta" class="responses-meta"></div>
+                        <div id="responsesTable" class="responses-table-wrapper"></div>
                     </div>
                 </section>
 
             </div>
+
         </main>
+
+        <!-- Mobile Menu Toggle -->
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle Menu">
+            <i class="fa-solid fa-bars"></i>
+        </button>
     </div>
 
     <!-- Field Editor Sidebar (Popup) -->
@@ -220,10 +257,23 @@
                         <option value="radio">Single Choice (Radio)</option>
                         <option value="checkbox_group">Multiple Choice (Checkbox)</option>
                         <option value="select">Dropdown</option>
+                        <option value="date">Date (Calendar Picker)</option>
                         <option value="checkbox">Confirmation (Single Checkbox)</option>
                         <option value="description">Description Text (No Input)</option>
                         <option value="success_link">Success Page Link (WhatsApp)</option>
+                        <option value="image">Display Image (QR/Banner)</option>
+                        <option value="file">File Upload (PDF/IMG)</option>
                     </select>
+                </div>
+
+                <div id="mediaUrlContainer" class="form-group"
+                    style="display:none; background:#eff6ff; padding:10px; border:1px solid #bfdbfe; border-radius:4px;">
+                    <label>Image Source URL</label>
+                    <input type="text" id="editMediaUrl" placeholder="https://example.com/qr-code.png"
+                        style="margin-bottom: 10px;">
+                    <label style="font-size: 0.8rem; opacity: 0.8;">Or Upload Image</label>
+                    <input type="file" id="editImageUpload" accept="image/*" style="font-size: 0.8rem;">
+                    <p id="imageUploadStatus" class="hint" style="margin-top: 5px; font-weight: 500;"></p>
                 </div>
 
                 <div id="linkUrlContainer" class="form-group"
@@ -269,7 +319,63 @@
         </div>
     </div>
 
+    <!-- Edit Response Modal -->
+    <div id="editResponseModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+            <h3>Edit Response</h3>
+            <div id="editResponseFields" style="margin-top: 15px;">
+                <!-- Dynamic form fields for editing -->
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button id="cancelEditResponse" class="btn btn-outline-secondary">Cancel</button>
+                <button id="saveEditResponse" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+
+
     <style>
+        /* ===== RESPONSES PANEL ===== */
+        #responses {
+            width: 100%;
+        }
+
+        .responses-panel {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--radius);
+        }
+
+        .responses-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .responses-meta {
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+        }
+
+        .responses-table-wrapper table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .responses-table-wrapper th,
+        .responses-table-wrapper td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            font-size: 0.9rem;
+        }
+
+        .responses-table-wrapper th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+        }
+
         /* Minimal Modal Styles */
         .modal-overlay {
             position: fixed;
@@ -279,7 +385,7 @@
             height: 100%;
             background: rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(4px);
-            z-index: 2000;
+            z-index: 4000;
             display: none;
             justify-content: center;
             align-items: center;
@@ -339,7 +445,6 @@
             gap: 10px;
         }
     </style>
-    <script src="js/admin.js"></script>
 </body>
 
 </html>

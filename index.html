@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CHAMBER WEEK'26 | Registration Form</title>
+    <title>Zeon forms</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,14 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <link rel="stylesheet" href="css/event-form.css">
+    <link rel="stylesheet" href="css/form.css">
+    <script type="module" src="js/form-loader.js"></script>
+    <script type="module" src="js/form-logic.js"></script>
+    <script src="js/dark-mode.js"></script>
+
+
+
+
 </head>
 
 <body>
@@ -28,13 +35,13 @@
     <div class="container">
 
         <!-- Form Header Card -->
-        <div class="form-header-card">
+        <div class="form-header-card" id="formHeaderCard">
             <div class="header-banner"></div>
             <div class="header-content">
                 <img src="" alt="Logo" class="club-logo-img" id="dynamicLogo" style="display:none;">
 
                 <div class="header-text-wrapper" id="headerTextWrapper">
-                    <h1 class="form-title" id="dynamicFormTitle">Registration Form</h1>
+                    <h1 class="form-title" id="dynamicFormTitle"></h1>
                     <p class="form-subtitle" id="dynamicFormDescription" style="display:none;"></p>
                 </div>
             </div>
@@ -48,7 +55,8 @@
 
 
 
-            <div class="form-actions" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="form-actions"
+                style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-top: 20px;">
                 <button type="submit" id="submitBtn" class="submit-btn"><span class="btn-text">Submit</span></button>
                 <button type="button" class="clear-btn"
                     onclick="document.getElementById('registrationForm').reset()">Clear
@@ -58,10 +66,13 @@
         </form>
 
         <div class="success-message" id="successMessage">
+            <div class="success-icon-wrapper">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
             <h2 class="success-title">Registration Successful</h2>
             <p class="form-subtitle">Your response has been recorded.</p>
 
-            <div class="whatsapp-group-container">
+            <div class="whatsapp-group-container" id="whatsappGroupContainer" style="display: none;">
                 <p style="margin-bottom: 15px; color: var(--theme-text-main); font-weight: 500;">Please join the group
                     for updates:</p>
                 <a href="https://chat.whatsapp.com/YOUR_LINK_HERE" class="whatsapp-link-btn" id="whatsappLink"
@@ -91,15 +102,11 @@
 
     </div>
     <div class="form-footer">
-        <p id="copyrightText">© <span id="currentYear"></span> Train 303. All rights reserved.</p>
+        <p id="copyrightText">© <span id="currentYear"></span> Zeon. All rights reserved.</p>
     </div>
 
-    <!-- Split JS Files for better organization -->
-    <script src="js/form-loader.js"></script>
-    <script src="js/dark-mode.js"></script>
-    <script src="js/form-logic.js"></script>
+    <!-- Set current year dynamically -->
     <script>
-        // Set current year dynamically
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
 </body>

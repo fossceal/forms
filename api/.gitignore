@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Cloudflare local state
+.wrangler/
+
+# Secrets (LOCAL ONLY)
+.dev.vars
+.env
+.env.*
+!.env.example
+!.dev.vars.example
+
+# Logs & temp
+*.log
+*.tmp
+.cache/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
