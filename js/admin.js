@@ -152,6 +152,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Sync allow multiple responses
+    if (allowMultipleInput) {
+        allowMultipleInput.addEventListener('change', (e) => {
+            currentDesign.allowMultipleResponses = e.target.checked;
+        });
+    }
+
     // Cloudinary config listeners
 
     if (cloudNameInput) {

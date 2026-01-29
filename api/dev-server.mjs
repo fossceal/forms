@@ -181,20 +181,36 @@ const server = createServer(async (req, res) => {
         // Serve static files
         if (req.method === 'GET' && !url.pathname.startsWith('/api/')) {
             try {
-                let filePath = join(__dirname, '..', 'public', url.pathname);
-                if (url.pathname === '/') filePath = join(__dirname, '..', 'public', 'admin.html');
+                let pathname = url.pathname;
+
+                // Add .html for clean URLs (if no extension and not root)
+                if (pathname !== "/" && !pathname.includes(".")) {
+                    pathname += ".html";
+                }
+
+                let filePath = join(__dirname, '..', 'public', pathname);
+                if (pathname === '/') filePath = join(__dirname, '..', 'public', 'admin.html');
+
+                if (!fs.existsSync(filePath) && pathname.endsWith('.html')) {
+                    // Try root folder if not in public/
+                    filePath = join(__dirname, '..', pathname);
+                }
+
                 const content = readFileSync(filePath);
                 const ext = filePath.split('.').pop();
                 const contentTypes = {
                     'html': 'text/html',
                     'js': 'application/javascript',
                     'css': 'text/css',
-                    'json': 'application/json'
+                    'json': 'application/json',
+                    'jpg': 'image/jpeg',
+                    'png': 'image/png'
                 };
                 res.writeHead(200, { 'Content-Type': contentTypes[ext] || 'text/plain' });
                 res.end(content);
                 return;
             } catch (e) {
+                console.warn(`File not found: ${url.pathname}`);
                 res.writeHead(404);
                 res.end('Not found');
                 return;

@@ -20,15 +20,19 @@ export const formFieldSchema = z.object({
 });
 
 export const formDesignSchema = z.object({
-    theme: z.string().optional(),
-    // Add other design properties as needed, keeping it flexible but safe
-    coverImage: z.string().url().optional().or(z.literal("")),
-    logo: z.string().url().optional().or(z.literal("")),
-    primaryColor: z.string().optional(),
+    themeColor: z.string().optional(),
+    banner: z.string().optional().or(z.literal("")),
+    logoLight: z.string().optional().or(z.literal("")),
+    logoDark: z.string().optional().or(z.literal("")),
     allowMultipleResponses: z.boolean().optional(),
-    responseLimit: z.preprocess((val) => parseInt(val, 10), z.number().optional()),
+    webTitle: z.string().optional(),
+    cloudinary: z.object({
+        cloudName: z.string().optional().or(z.literal("")),
+        preset: z.string().optional().or(z.literal("")),
+    }).optional(),
     formTitle: z.string().optional(),
     formDescription: z.string().optional(),
+    responseLimit: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().optional()),
 });
 
 export const saveFormSchema = z.object({

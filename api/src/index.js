@@ -70,6 +70,15 @@ function addSecurityHeaders(headers) {
 export default {
 	async fetch(request, env) {
 		const url = new URL(request.url);
+
+		// Clean URL rewriting: /page -> /page.html
+		// Skip root '/', avoid paths with extensions, and ignore /api routes
+		let isCleanUrl = false;
+		if (url.pathname !== "/" && !url.pathname.includes(".") && !url.pathname.startsWith("/api")) {
+			url.pathname += ".html";
+			isCleanUrl = true;
+		}
+
 		const ip = request.headers.get("cf-connecting-ip") || "unknown";
 		const origin = request.headers.get("Origin");
 
@@ -209,7 +218,23 @@ export default {
 				return updateForm(id, data, env, secureRes);
 			}
 
-			return secureRes("Not Found", { status: 404 });
+			// If no API route matched, handle static assets
+			if (url.pathname.startsWith("/api")) {
+				return secureRes("Not Found", { status: 404 });
+			}
+
+			// Fall back to fetching the request (which might have been rewritten to .html)
+			// Using the modified URL object if it was a clean URL rewrite
+			const finalRequest = isCleanUrl ? new Request(url.toString(), request) : request;
+
+			// If on Pages, env.ASSETS is the way to fetch static content
+			if (env.ASSETS) {
+				return env.ASSETS.fetch(finalRequest);
+			}
+
+			// For standard Workers, fetch(finalRequest) will work if it's a proxy 
+			// or if the environment handles asset resolution
+			return fetch(finalRequest);
 
 		} catch (error) {
 			logSecurityEvent(request, "WORKER_ERROR", { error: error.message });
