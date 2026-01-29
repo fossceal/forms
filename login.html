@@ -5,21 +5,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://custom-forms-api.mr-adhi125.workers.dev https://cloudflareinsights.com;">
-    <title>Admin Login | Custom Forms</title>
+        content="default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://custom-forms-api.mr-adhi125.workers.dev https://cloudflareinsights.com;">
+    <title>Admin Login | KumoFumi by Zeon</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/admin.css">
     <script type="module" src="js/form-login.js"></script>
+    <script src="js/dark-mode.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-body, #f3f4f6);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
             margin: 0;
             color: var(--text-main, #1f2937);
+            position: relative;
+        }
+
+        .theme-toggle-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .theme-toggle-btn {
+            background: var(--bg-card, #ffffff);
+            border: 1px solid var(--border, #e5e7eb);
+            color: var(--text-muted, #6b7280);
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .theme-toggle-btn:hover {
+            color: var(--primary, #2563eb);
+            background: var(--bg-secondary);
+            transform: translateY(-2px);
         }
 
         .login-card {
@@ -116,6 +148,12 @@
 </head>
 
 <body>
+    <div class="theme-toggle-container">
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+    </div>
+
     <div class="login-card">
         <div class="login-header">
             <h1 class="login-title">Admin Login</h1>
@@ -133,9 +171,12 @@
         </form>
 
         <div class="login-footer">
-            <p>&copy; 2026 Zeon Forms</p>
+            <p>&copy; <span id="currentYear"></span> KumoFumi Cloud Forms by Zeon. All rights reserved.</p>
         </div>
     </div>
+    <script>
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
 </body>
 
 </html>

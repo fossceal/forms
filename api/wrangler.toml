@@ -3,10 +3,10 @@ main = "src/index.js"
 compatibility_date = "2026-01-26"
 
 # =========================
-# DEFAULT (development)
+# DEFAULT (LOCAL DEV)
 # =========================
 [vars]
-ALLOWED_ORIGIN = "https://foss.ceal.in"
+ALLOWED_ORIGIN = "*"
 ENVIRONMENT = "development"
 
 [[d1_databases]]
@@ -14,16 +14,16 @@ binding = "DB"
 database_name = "custom-forms-db"
 database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
 
-
 [[kv_namespaces]]
 binding = "LIMITER"
-id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa" # Fallback to same ID or user needs to replace
+id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
+
 
 # =========================
-# PRODUCTION ENVIRONMENT
+# PRODUCTION
 # =========================
 [env.production]
-name = "custom-forms-api"  # IMPORTANT: same Worker name
+name = "custom-forms-api"
 
 [env.production.vars]
 ALLOWED_ORIGIN = "https://foss.ceal.in"
@@ -36,5 +36,4 @@ database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
 
 [[env.production.kv_namespaces]]
 binding = "LIMITER"
-id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa" # User must replace this
-
+id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"

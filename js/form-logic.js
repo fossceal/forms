@@ -241,7 +241,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            let html = `<label class="form-label">${field.label}${isReq}</label>`;
+            let html = "";
+            // Render label for standard fields, but skip for those that handle their own labels or have no label
+            if (field.type !== 'checkbox' && field.type !== 'description' && field.type !== 'success_link' && field.type !== 'image') {
+                html += `<label class="form-label">${field.label}${isReq}</label>`;
+            }
 
             switch (field.type) {
                 case "email":
@@ -304,12 +308,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 case "date":
                     html += `<input type="date" id="${field.id}" name="${field.id}" class="form-input" ${field.required ? 'required' : ''}>`;
                     break;
+                case "checkbox_group":
+                    // Added support for multiple checkboxes
+                    // Use label above (rendered by default logic if we didn't exclude it, but we did exclude 'checkbox', not 'checkbox_group')
+                    // Actually, for checkbox_group, we DO want the label above.
+                    // My previous if condition: if (field.type !== 'checkbox' ...)
+                    // So checkbox_group WILL have the label above. Good.
+                    html += `<div class="checkbox-group">
+                        ${(field.options || []).map(opt => {
+                        const label = typeof opt === 'object' ? opt.label : opt;
+                        const value = typeof opt === 'object' ? opt.value : opt;
+                        return `
+                                <label class="checkbox-option">
+                                    <input type="checkbox" name="${field.id}" value="${value}"> <span>${label}</span>
+                                </label>
+                            `;
+                    }).join('')}
+                    </div>`;
+                    break;
                 case "checkbox":
+                    // Single checkbox - label is next to box
                     html += `<div class="checkbox-group">
                         <label class="checkbox-option">
-                            <input type="checkbox" id="${field.id}" name="${field.id}" ${field.required ? 'required' : ''}> <span>Accept Terms</span>
+                            <input type="checkbox" id="${field.id}" name="${field.id}" ${field.required ? 'required' : ''}> <span>${field.label}${isReq}</span>
                         </label>
                     </div>`;
+                    break;
+                case "description":
+                    html += `<div style="font-size:1rem; color:var(--theme-text-main); line-height:1.5; white-space: pre-wrap; margin-bottom:10px;">${field.label}</div>`;
                     break;
                 case "file":
                     html += `<input type="file" id="${field.id}" name="${field.id}" class="form-input" ${field.required ? 'required' : ''} style="font-size: 0.9rem; padding: 10px 0;">

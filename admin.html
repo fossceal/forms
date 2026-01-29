@@ -4,14 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard | Custom Forms</title>
+    <title>Admin Dashboard | KumoFumi by Zeon</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="css/admin.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script type="module" src="js/admin.js"></script>
     <script src="js/dark-mode.js"></script>
 </head>
@@ -41,8 +44,32 @@
                     </li>
                 </ul>
             </nav>
-        </aside>
 
+            <!-- Creator Showcase -->
+            <div class="sidebar-footer">
+                <div class="creator-label">The Creator of KumoFumi</div>
+                <div class="creator-profile">
+                    <img src="img/dp.jpg" alt="Creator" class="creator-avatar">
+                    <div class="creator-info">
+                        <strong>Zeon</strong>
+                        <span class="creator-role">Developer</span>
+                    </div>
+                </div>
+                <div class="social-links">
+                    <a href="https://github.com/ZEON-07" class="social-link" title="GitHub"><i
+                            class="fa-brands fa-github"></i></a>
+                    <a href="https://linkedin.com/in/adithyan07" class="social-link" title="LinkedIn"><i
+                            class="fa-brands fa-linkedin"></i></a>
+                    <a href="https://instagram.com/zeon_ig" class="social-link" title="Instagram"><i
+                            class="fa-brands fa-instagram"></i></a>
+                    <a href="https://mail.google.com/mail/?view=cm&to=mr.adhi125@gmail.com" target="_blank"
+                        class="social-link" title="Email">
+                        <i class="fa-solid fa-envelope"></i>
+                    </a>
+
+                </div>
+            </div>
+        </aside>
         <!-- Main Content -->
         <main class="main-content">
             <div class="tab-content">
@@ -164,7 +191,8 @@
                             </div>
                             <p class="hint" style="margin-bottom:20px; font-size: 0.85rem;">Required for the
                                 <strong>"File
-                                    Upload"</strong> field type to store assets securely.</p>
+                                    Upload"</strong> field type to store assets securely.
+                            </p>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div>
@@ -193,7 +221,7 @@
 
                     <!-- Save Button at Bottom -->
                     <button id="saveToLibraryBtn" class="btn btn-success"
-                        style="margin-top:20px; font-size:1.1rem; padding:15px 30px; width:100%; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);">
+                        style="margin: 30px auto 10px; font-size: 1rem; padding: 12px 24px; min-width: 250px; display: block; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);">
                         <i class="fa-solid fa-floppy-disk"></i> Save Form to Library
                     </button>
                 </section>
@@ -203,13 +231,25 @@
                     <div id="responsesPanel" class="responses-panel">
                         <div class="responses-header">
                             <h2>Responses</h2>
-                            <div>
-                                <button id="exportCsvBtn" class="btn btn-outline-primary btn-sm">
-                                    <i class="fa-solid fa-file-csv"></i> Export CSV
-                                </button>
-                                <button id="exportPdfBtn" class="btn btn-outline-primary btn-sm">
-                                    <i class="fa-solid fa-file-pdf"></i> Export PDF
-                                </button>
+                            <div class="responses-header-actions">
+                                <div class="export-dropdown">
+                                    <button id="exportDropdownBtn" class="btn btn-outline-primary btn-sm">
+                                        <i class="fa-solid fa-file-export"></i> Export <i
+                                            class="fa-solid fa-chevron-down"
+                                            style="font-size: 0.7rem; margin-left: 4px;"></i>
+                                    </button>
+                                    <div id="exportMenu" class="dropdown-menu">
+                                        <button class="dropdown-item" id="exportCsvBtn">
+                                            <i class="fa-solid fa-file-csv"></i> CSV
+                                        </button>
+                                        <button class="dropdown-item" id="exportExcelBtn">
+                                            <i class="fa-solid fa-file-excel"></i> Excel (XLSX)
+                                        </button>
+                                        <button class="dropdown-item" id="exportPdfBtn">
+                                            <i class="fa-solid fa-file-pdf"></i> PDF Report
+                                        </button>
+                                    </div>
+                                </div>
                                 <button id="clearResponsesBtn" class="btn btn-outline-danger btn-sm">
                                     <i class="fa-solid fa-trash-can"></i> Clear All
                                 </button>
@@ -225,6 +265,15 @@
                 </section>
 
             </div>
+
+
+            <!-- Admin Footer -->
+            <div class="admin-footer">
+                <p>&copy; <span id="currentYear">2026</span> KumoFumi Cloud Forms by Zeon. All rights reserved.</p>
+            </div>
+            <script>
+                document.getElementById('currentYear').textContent = new Date().getFullYear();
+            </script>
 
         </main>
 
@@ -266,18 +315,29 @@
                     </select>
                 </div>
 
-                <div id="mediaUrlContainer" class="form-group"
-                    style="display:none; background:#eff6ff; padding:10px; border:1px solid #bfdbfe; border-radius:4px;">
+                <div id="mediaUrlContainer" class="form-group theme-hint-box"
+                    style="display:none; padding:10px; border:1px solid var(--border); border-radius:4px; margin-bottom: 15px;">
                     <label>Image Source URL</label>
                     <input type="text" id="editMediaUrl" placeholder="https://example.com/qr-code.png"
                         style="margin-bottom: 10px;">
+
+                    <div id="sidebarImagePreviewContainer"
+                        style="margin-bottom: 15px; display: none; text-align: center; background: var(--bg-body); padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+                        <img id="sidebarImagePreview" src=""
+                            style="max-width: 100%; max-height: 150px; border-radius: 4px; display: block; margin: 0 auto;">
+                    </div>
+
                     <label style="font-size: 0.8rem; opacity: 0.8;">Or Upload Image</label>
                     <input type="file" id="editImageUpload" accept="image/*" style="font-size: 0.8rem;">
+                    <p style="margin-top: 5px; font-size: 0.75rem; color: #ea580c; font-style: italic;">
+                        <i class="fa-solid fa-circle-exclamation"></i> Direct upload is W.I.P. Please use "Image Source
+                        URL" for stable results.
+                    </p>
                     <p id="imageUploadStatus" class="hint" style="margin-top: 5px; font-weight: 500;"></p>
                 </div>
 
-                <div id="linkUrlContainer" class="form-group"
-                    style="display:none; background:#f0fff4; padding:10px; border:1px solid #bbf7d0; border-radius:4px;">
+                <div id="linkUrlContainer" class="form-group theme-hint-box"
+                    style="display:none; padding:10px; border:1px solid var(--border); border-radius:4px; margin-bottom: 15px;">
                     <label>Link URL (e.g., WhatsApp Group)</label>
                     <input type="text" id="editLinkUrl" placeholder="https://chat.whatsapp.com/...">
                 </div>
@@ -291,7 +351,7 @@
 
                 <!-- Options Editor (for Radio/Checkbox/Select) -->
                 <div id="optionsContainer"
-                    style="display:none; border-top:1px solid #eee; padding-top:15px; margin-top:15px;">
+                    style="display:none; border-top:1px solid var(--border); padding-top:15px; margin-top:15px;">
                     <label>Options</label>
                     <div id="optionsList"></div>
                     <button id="addOptionBtn" class="btn btn-sm btn-outline-primary" style="margin-top:10px;">+ Add
@@ -329,6 +389,33 @@
             <div class="modal-actions" style="margin-top: 20px;">
                 <button id="cancelEditResponse" class="btn btn-outline-secondary">Cancel</button>
                 <button id="saveEditResponse" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cloudinary Help Modal -->
+    <div id="cloudinaryHelpModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 500px;">
+            <h3><i class="fa-solid fa-cloud"></i> Cloudinary Setup Guide</h3>
+            <div style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main); margin-top: 15px;">
+                <p>To enable <strong>File Uploads</strong>, you need an unsigned upload preset:</p>
+                <ol style="padding-left: 20px; margin: 15px 0;">
+                    <li>Log in to <a href="https://cloudinary.com/console" target="_blank"
+                            style="color:var(--primary);">Cloudinary Console</a>.</li>
+                    <li>Go to <strong>Settings</strong> (gear icon) > <strong>Upload</strong> tab.</li>
+                    <li>Scroll to <strong>Upload presets</strong> and click <strong>Add upload preset</strong>.</li>
+                    <li>Change "Signing Mode" to <strong>Unsigned</strong>.</li>
+                    <li>Copy the generated <strong>Preset Name</strong> (e.g., <code>ml_default</code>).</li>
+                    <li>Paste your <strong>Cloud Name</strong> and <strong>Preset Name</strong> in the builder.</li>
+                </ol>
+                <p class="hint"
+                    style="background: var(--bg-body); padding: 10px; border-radius: 6px; border-left: 4px solid var(--primary);">
+                    <i class="fa-solid fa-circle-info"></i> Unsigned presets allow direct uploads from users without
+                    exposing your API credentials.
+                </p>
+            </div>
+            <div class="modal-actions" style="margin-top: 25px;">
+                <button id="closeCloudinaryHelp" class="btn btn-primary" style="width: 100%;">Got it!</button>
             </div>
         </div>
     </div>
@@ -445,6 +532,28 @@
             gap: 10px;
         }
     </style>
+    <!-- Image Preview Modal -->
+    <div id="imagePreviewModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 800px; padding: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 id="previewModalTitle" style="margin:0; font-size:1.1rem;">Image Preview</h3>
+                <span id="closeImagePreview"
+                    style="cursor:pointer; font-size:1.5rem; line-height:1; color: var(--text-main);">&times;</span>
+            </div>
+            <div
+                style="text-align:center; background: var(--bg-body); border-radius: 8px; overflow: hidden; min-height: 200px; display: flex; align-items:center; justify-content:center; border: 1px solid var(--border);">
+                <img id="modalPreviewImage" src=""
+                    style="max-width: 100%; max-height: 70vh; object-fit: contain; display: block;">
+            </div>
+            <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <a id="downloadPreviewLink" href="" download class="btn btn-outline-primary btn-sm">
+                    <i class="fa-solid fa-download"></i> Download
+                </a>
+                <button id="closePreviewBtn" class="btn btn-primary btn-sm">Close</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>
