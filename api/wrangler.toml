@@ -16,7 +16,7 @@ database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
 
 [[kv_namespaces]]
 binding = "LIMITER"
-id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
+id = "77e2b6347dbb43fdb50b6d7b8d1adb56"
 
 
 # =========================
@@ -36,4 +36,4 @@ database_id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
 
 [[env.production.kv_namespaces]]
 binding = "LIMITER"
-id = "b8f2c19e-30d8-4b8b-8b25-68632d9700aa"
+id = "77e2b6347dbb43fdb50b6d7b8d1adb56"

@@ -6,12 +6,15 @@ export const formFieldSchema = z.object({
     id: z.string().min(1),
     type: z.enum([
         "text", "textarea", "email", "number", "date", "time",
-        "select", "checkbox", "radio", "file", "description", "image"
+        "select", "checkbox", "radio", "checkbox_group", "file",
+        "description", "image", "success_link"
     ]),
     label: z.string().optional(),
     required: z.boolean().optional(),
     placeholder: z.string().optional(),
-    options: z.array(z.string()).optional(), // For select/radio
+    options: z.array(z.string()).optional(), // For select/radio/checkbox_group
+    linkUrl: z.string().optional(), // For success_link
+    mediaUrl: z.string().optional(), // For image
     validation: z.object({
         min: z.number().optional(),
         max: z.number().optional(),
@@ -36,9 +39,9 @@ export const formDesignSchema = z.object({
 });
 
 export const saveFormSchema = z.object({
-    title: z.string().min(1).max(255),
+    title: z.string().optional(), // Defaults to "Untitled Form" in backend
     description: z.string().optional(),
-    fields: z.array(formFieldSchema),
+    fields: z.array(formFieldSchema).default([]),
     design: formDesignSchema.optional(),
     responseLimit: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().optional()),
 });
@@ -52,7 +55,8 @@ export function createSubmissionSchema(formConfig) {
     const shape = {};
 
     formConfig.forEach((field) => {
-        if (field.type === "description" || field.type === "image") return;
+        // Skip display-only fields
+        if (field.type === "description" || field.type === "image" || field.type === "success_link") return;
 
         let schema;
 
@@ -64,6 +68,7 @@ export function createSubmissionSchema(formConfig) {
                 schema = z.preprocess((val) => Number(val), z.number());
                 break;
             case "checkbox":
+            case "checkbox_group":
                 schema = z.array(z.string()).or(z.boolean()); // Checkbox can be array of values or boolean
                 break;
             default:
@@ -101,7 +106,9 @@ export async function validate(schema, data) {
         return await schema.parseAsync(data);
     } catch (error) {
         if (error instanceof z.ZodError) {
-            const messages = error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
+            // Safely handle issues/errors array
+            const issues = error.issues || error.errors || [];
+            const messages = issues.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
             throw new Error(`Validation Error: ${messages}`);
         }
         throw error;
