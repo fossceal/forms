@@ -238,9 +238,9 @@ export default {
 
 		} catch (error) {
 			logSecurityEvent(request, "WORKER_ERROR", { error: error.message });
-			const status = (error.message.includes("Unauthorized") || error.message.includes("Authentication")) ? 401
+			const status = error.message.includes("Unauthorized") ? 401
 				: error.message.includes("Forbidden") ? 403
-					: (error.message.includes("Validation") || error.message.includes("required") || error.message.includes("Invalid")) ? 400
+					: error.message.includes("Validation") || error.message.includes("required") ? 400
 						: 500;
 			return new Response(JSON.stringify({ error: error.message }), {
 				status: status,
@@ -286,8 +286,8 @@ async function isAuthenticated(request, env) {
 async function getFormBySlug(slug, env, secureRes) {
 	// Parameterized query: SAFE
 	const form = await env.DB.prepare(
-		"SELECT * FROM forms WHERE slug = ? OR id = ?"
-	).bind(slug, slug).first();
+		"SELECT * FROM forms WHERE slug = ? AND status = 'open'"
+	).bind(slug).first();
 
 	if (!form) return secureRes("Form not found", { status: 404 });
 	return secureRes(JSON.stringify({
@@ -420,8 +420,8 @@ async function submitResponse(slug, request, env, secureRes) {
 	const now = Date.now();
 
 	const form = await env.DB
-		.prepare("SELECT id, status, design, config FROM forms WHERE slug = ? OR id = ?")
-		.bind(slug, slug)
+		.prepare("SELECT id, status, design, config FROM forms WHERE slug = ?")
+		.bind(slug)
 		.first();
 
 	if (!form) {
