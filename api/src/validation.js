@@ -5,7 +5,7 @@ import { z } from "zod";
 export const formFieldSchema = z.object({
     id: z.string().min(1),
     type: z.enum([
-        "text", "textarea", "email", "number", "date", "time",
+        "text", "textarea", "email", "tel", "number", "date", "time",
         "select", "checkbox", "radio", "checkbox_group", "file",
         "description", "image", "success_link"
     ]),
