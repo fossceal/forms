@@ -326,14 +326,25 @@ async function saveForm(data, env, secureRes) {
 	};
 	const responseLimit = data.responseLimit || null;
 
-	// 2. Generate System Fields
+	// 2. Normalize design fields (Pro-level improvement)
+	const cleanDesign = {
+		...design,
+		banner: design.banner || null,
+		logoLight: design.logoLight || null,
+		logoDark: design.logoDark || null,
+		formTitle: title,
+		formDescription: description,
+		responseLimit
+	};
+
+	// 3. Generate System Fields
 	let baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 	if (!baseSlug) baseSlug = 'form';
 
 	let slug = baseSlug;
 	let counter = 0;
 
-	// 3. Ensure Unique Slug
+	// 4. Ensure Unique Slug
 	let exists = true;
 	while (exists) {
 		const check = await env.DB.prepare("SELECT id FROM forms WHERE slug = ?").bind(slug).first();
@@ -348,7 +359,7 @@ async function saveForm(data, env, secureRes) {
 	const id = crypto.randomUUID();
 	const now = Date.now();
 
-	// 4. Insert into DB (Strict Contract)
+	// 5. Insert into DB (Strict Contract)
 	await env.DB.prepare(`
         INSERT INTO forms (id, slug, name, config, design, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
@@ -357,12 +368,7 @@ async function saveForm(data, env, secureRes) {
 		slug,
 		title,
 		JSON.stringify(fields), // Config maps to fields array
-		JSON.stringify({
-			...design,
-			formTitle: title,
-			formDescription: description,
-			responseLimit
-		}),
+		JSON.stringify(cleanDesign),
 		now,
 		now
 	).run();
@@ -386,6 +392,17 @@ async function updateForm(targetId, data, env, secureRes) {
 	const formSlug = formRecord.slug;
 	const updateTime = Date.now();
 
+	// Normalize design fields
+	const cleanDesign = {
+		...updatedDesign,
+		banner: updatedDesign.banner || null,
+		logoLight: updatedDesign.logoLight || null,
+		logoDark: updatedDesign.logoDark || null,
+		formTitle: updatedTitle,
+		formDescription: updatedDescription || '',
+		responseLimit: updatedResponseLimit
+	};
+
 	await env.DB.prepare(`
         UPDATE forms 
         SET name=?, config=?, design=?, updated_at=?
@@ -393,12 +410,7 @@ async function updateForm(targetId, data, env, secureRes) {
     `).bind(
 		updatedTitle,
 		JSON.stringify(updatedFields),
-		JSON.stringify({
-			...updatedDesign,
-			formTitle: updatedTitle,
-			formDescription: updatedDescription || '',
-			responseLimit: updatedResponseLimit
-		}),
+		JSON.stringify(cleanDesign),
 		updateTime,
 		targetId
 	).run();

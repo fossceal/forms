@@ -1127,9 +1127,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 fields: currentFields,
                 design: {
                     themeColor: currentDesign.themeColor,
-                    banner: currentDesign.banner,
-                    logoLight: currentDesign.logoLight,
-                    logoDark: currentDesign.logoDark,
+                    banner: currentDesign.banner || null,
+                    logoLight: currentDesign.logoLight || null,
+                    logoDark: currentDesign.logoDark || null,
                     allowMultipleResponses: currentDesign.allowMultipleResponses !== false,
                     webTitle: currentDesign.webTitle || '',
                     cloudinary: currentDesign.cloudinary || { cloudName: '', preset: '' }

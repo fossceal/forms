@@ -24,9 +24,9 @@ export const formFieldSchema = z.object({
 
 export const formDesignSchema = z.object({
     themeColor: z.string().optional(),
-    banner: z.string().optional().or(z.literal("")),
-    logoLight: z.string().optional().or(z.literal("")),
-    logoDark: z.string().optional().or(z.literal("")),
+    banner: z.string().url().nullable().or(z.literal("")).optional().transform(val => val || null),
+    logoLight: z.string().url().nullable().or(z.literal("")).optional().transform(val => val || null),
+    logoDark: z.string().url().nullable().or(z.literal("")).optional().transform(val => val || null),
     allowMultipleResponses: z.boolean().optional(),
     webTitle: z.string().optional(),
     cloudinary: z.object({
