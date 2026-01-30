@@ -71,7 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize
     loadFormsFromBackend();
-    checkAndRestoreDraft();
+    loadFormsFromBackend();
+    // checkAndRestoreDraft moved to after initialization
 
     // --- AUTOSAVE LOGIC ---
     function saveDraft() {
@@ -199,6 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize
     loadFormsFromBackend();
+    checkAndRestoreDraft();
 
 
     // Color picker
@@ -1159,19 +1161,40 @@ document.addEventListener("DOMContentLoaded", () => {
                     // CREATE new form
                     console.log('Creating new form');
                     const token = localStorage.getItem('adminToken');
+
+                    // Send Clean Builder Schema for Creation
+                    const createPayload = {
+                        title: currentDesign.formTitle || "Untitled Form",
+                        description: currentDesign.formDescription || "",
+                        fields: currentFields || [],
+                        design: currentDesign,
+                        responseLimit: currentDesign.responseLimit ? parseInt(currentDesign.responseLimit) : null
+                    };
+
                     response = await fetch(`${API_BASE}/api/forms`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify(createPayload)
                     });
                 }
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to save form');
+                    let errorMessage = 'Failed to save form';
+                    try {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            const errorData = await response.json();
+                            errorMessage = errorData.error || errorMessage;
+                        } else {
+                            errorMessage = await response.text() || errorMessage;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing response:', e);
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const result = await response.json();

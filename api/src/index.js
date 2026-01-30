@@ -298,27 +298,43 @@ async function getFormBySlug(slug, env, secureRes) {
 }
 
 async function getAllForms(env, secureRes) {
-	const { results } = await env.DB.prepare("SELECT * FROM forms ORDER BY updated_at DESC").all();
-	const forms = results.map(r => ({
-		...r,
-		date: new Date(r.updated_at).toLocaleDateString(),
-		config: JSON.parse(r.config),
-		design: JSON.parse(r.design)
-	}));
-	return secureRes(JSON.stringify(forms), { headers: { "Content-Type": "application/json" } });
+	try {
+		const stmt = await env.DB.prepare("SELECT * FROM forms ORDER BY updated_at DESC").all();
+		const results = stmt.results || [];
+		const forms = results.map(r => ({
+			...r,
+			date: new Date(r.updated_at).toLocaleDateString(),
+			config: JSON.parse(r.config),
+			design: JSON.parse(r.design)
+		}));
+		return secureRes(JSON.stringify(forms), { headers: { "Content-Type": "application/json" } });
+	} catch (e) {
+		console.error("getAllForms error:", e);
+		return secureRes(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+	}
 }
 
 async function saveForm(data, env, secureRes) {
-	const { title, description, fields, design, responseLimit } = data; // Already validated by Zod
+	// 1. Enforce Defaults & Clean Data
+	const title = data.title && data.title.trim() ? data.title.trim() : "Untitled Form";
+	const description = data.description || "";
+	const fields = data.fields || [];
+	const design = data.design || {
+		themeColor: "#db4437",
+		formTitle: title,
+		formDescription: description
+	};
+	const responseLimit = data.responseLimit || null;
 
-	// Generate stable human-readable slug
+	// 2. Generate System Fields
 	let baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 	if (!baseSlug) baseSlug = 'form';
 
 	let slug = baseSlug;
 	let counter = 0;
-	let exists = true;
 
+	// 3. Ensure Unique Slug
+	let exists = true;
 	while (exists) {
 		const check = await env.DB.prepare("SELECT id FROM forms WHERE slug = ?").bind(slug).first();
 		if (!check) {
@@ -332,6 +348,7 @@ async function saveForm(data, env, secureRes) {
 	const id = crypto.randomUUID();
 	const now = Date.now();
 
+	// 4. Insert into DB (Strict Contract)
 	await env.DB.prepare(`
         INSERT INTO forms (id, slug, name, config, design, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
@@ -339,11 +356,11 @@ async function saveForm(data, env, secureRes) {
 		id,
 		slug,
 		title,
-		JSON.stringify(fields),
+		JSON.stringify(fields), // Config maps to fields array
 		JSON.stringify({
 			...design,
 			formTitle: title,
-			formDescription: description || '',
+			formDescription: description,
 			responseLimit
 		}),
 		now,
