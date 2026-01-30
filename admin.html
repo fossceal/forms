@@ -15,7 +15,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/admin.js"></script>
     <script src="js/dark-mode.js"></script>
 </head>
@@ -257,74 +256,6 @@
                                 <button onclick="closeResponses()" class="btn btn-outline-danger btn-sm">
                                     <i class="fa-solid fa-xmark"></i> Close
                                 </button>
-                            </div>
-                        </div>
-
-                        <div class="responses-toolbar">
-                            <div class="search-box">
-                                <i class="fa-solid fa-magnifying-glass"></i>
-                                <input type="text" id="responseSearchInput" placeholder="Search responses...">
-                            </div>
-                            <div class="view-toggles">
-                                <button id="viewTableBtn" class="btn btn-sm active">
-                                    <i class="fa-solid fa-table"></i> Table
-                                </button>
-                                <button id="viewStatsBtn" class="btn btn-sm">
-                                    <i class="fa-solid fa-chart-pie"></i> Stats
-                                </button>
-                                <button id="viewIndividualBtn" class="btn btn-sm">
-                                    <i class="fa-solid fa-user"></i> Individual
-                                </button>
-                            </div>
-                            <button id="toggleFilterBtn" class="btn btn-outline-secondary btn-sm">
-                                <i class="fa-solid fa-filter"></i> Filters
-                            </button>
-                            <div class="sort-box" style="display: flex; align-items: center; gap: 8px;">
-                                <label
-                                    style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Sort:</label>
-                                <select id="responseSortOrder" class="modal-input filter-select"
-                                    style="margin: 0; padding: 6px 30px 6px 12px; font-size: 0.85rem; min-width: 140px;">
-                                    <option value="desc">Newest First</option>
-                                    <option value="asc">Oldest First</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div id="filterPanel" class="filter-panel">
-                            <div class="filter-header">
-                                <h4 class="filter-title">Active Filters</h4>
-                                <button id="clearFiltersBtn" class="btn btn-link btn-sm"
-                                    style="color:var(--text-muted); padding:0; text-decoration:none;">Clear All</button>
-                            </div>
-                            <div id="filterList" class="filter-list">
-                                <!-- Dynamic filters will go here -->
-                            </div>
-                        </div>
-
-                        <div id="statsView" class="stats-view">
-                            <div id="statsContent" class="stats-content">
-                                <!-- Aggregated stats will go here -->
-                            </div>
-                        </div>
-
-                        <div id="individualView" class="stats-view"
-                            style="display:none; max-width:800px; margin:0 auto;">
-                            <div class="filter-header"
-                                style="margin-bottom:20px; background:var(--bg-secondary); padding:10px 15px; border-radius:var(--radius); border:1px solid var(--border);">
-                                <div style="display:flex; align-items:center; gap:15px;">
-                                    <button id="prevEntryBtn" class="btn btn-sm btn-outline-secondary"><i
-                                            class="fa-solid fa-chevron-left"></i></button>
-                                    <span id="entryCounter"
-                                        style="font-size:0.9rem; font-weight:600; color:var(--text-main);">Entry 0 of
-                                        0</span>
-                                    <button id="nextEntryBtn" class="btn btn-sm btn-outline-secondary"><i
-                                            class="fa-solid fa-chevron-right"></i></button>
-                                </div>
-                                <div id="entryTimestamp" style="font-size:0.85rem; color:var(--text-muted);"></div>
-                            </div>
-                            <div id="individualEntryContent" class="card"
-                                style="margin:0; padding:25px; border-radius:var(--radius);">
-                                <!-- Single entry fields will go here -->
                             </div>
                         </div>
 
