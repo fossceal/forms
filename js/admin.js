@@ -24,6 +24,15 @@ let backendForms = [];
 let currentFields = [];
 let currentFormId = null;
 
+// Responses State
+let filteredResponses = [];
+let responseSearchQuery = "";
+let activeFilters = {};
+let responseViewMode = "table";
+let responseSortOrder = "desc"; // Default Newest First
+let currentIndividualIndex = 0;
+let currentFormFields = []; // Current schema for responses panel
+
 document.addEventListener("DOMContentLoaded", () => {
     // Auth
     const token = localStorage.getItem('adminToken');
@@ -43,11 +52,18 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         }
         return originalFetch(url, options).then(response => {
-            if (response.status === 401 || response.status === 403) {
+            if (response.status === 401) {
+                // Ignore 401 on login attempts (obviously)
                 if (!url.toString().includes('/api/login')) {
+                    console.warn("Session expired (401). Redirecting to login...");
                     localStorage.removeItem('adminToken');
-                    window.location.href = 'login.html';
+                    // Store current URL to redirect back after login if possible
+                    sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
+                    window.location.href = 'login.html?expired=true';
                 }
+            }
+            if (response.status === 403 && !url.toString().includes('/api/login')) {
+                console.error("Access restricted (403).");
             }
             return response;
         });
@@ -55,6 +71,75 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize
     loadFormsFromBackend();
+    checkAndRestoreDraft();
+
+    // --- AUTOSAVE LOGIC ---
+    function saveDraft() {
+        if (!currentDesign.formTitle && currentFields.length === 0) return;
+        const draft = {
+            design: currentDesign,
+            fields: currentFields,
+            formId: currentFormId,
+            mode: formMode,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('form_builder_draft', JSON.stringify(draft));
+        console.log("Draft autosaved at " + new Date().toLocaleTimeString());
+    }
+
+    function clearDraft() {
+        localStorage.removeItem('form_builder_draft');
+    }
+
+    function checkAndRestoreDraft() {
+        const rawDraft = localStorage.getItem('form_builder_draft');
+        if (!rawDraft) return;
+
+        try {
+            const draft = JSON.parse(rawDraft);
+            const timeAgo = Math.round((Date.now() - draft.timestamp) / 1000 / 60);
+
+            if (timeAgo > 60 * 24) { // Don't restore drafts older than 24 hours
+                clearDraft();
+                return;
+            }
+
+            if (confirm(`You have an unsaved draft from ${timeAgo} minutes ago. Would you like to restore it?`)) {
+                currentDesign = draft.design;
+                currentFields = draft.fields;
+                currentFormId = draft.formId;
+                formMode = draft.mode;
+
+                // Sync UI
+                if (formTitleInput) formTitleInput.value = currentDesign.formTitle || "";
+                if (formDescInput) formDescInput.value = currentDesign.formDescription || "";
+                if (webTitleInput) webTitleInput.value = currentDesign.webTitle || "";
+                if (responseLimitInput) responseLimitInput.value = currentDesign.responseLimit || "";
+                if (colorPicker) colorPicker.value = currentDesign.themeColor || "#db4437";
+                if (colorValue) colorValue.textContent = currentDesign.themeColor || "#db4437";
+
+                renderFieldBuilder();
+                updatePreview();
+                showFormTabs();
+                switchTab('builder');
+            } else {
+                clearDraft();
+            }
+        } catch (e) {
+            console.error("Failed to parse draft", e);
+            clearDraft();
+        }
+    }
+
+    // Debounce helper
+    function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+    const debouncedSaveDraft = debounce(saveDraft, 2000);
     // State sync inputs
     const colorPicker = document.getElementById("themeColorPicker");
     const colorValue = document.getElementById("colorValue");
@@ -128,6 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (formTitleInput) {
         formTitleInput.addEventListener('input', (e) => {
             currentDesign.formTitle = e.target.value;
+            debouncedSaveDraft();
         });
     }
 
@@ -142,6 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (formDescInput) {
         formDescInput.addEventListener('input', (e) => {
             currentDesign.formDescription = e.target.value;
+            debouncedSaveDraft();
         });
     }
 
@@ -313,7 +400,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // Close sidebar when clicking outside on mobile
         document.addEventListener('click', (e) => {
             if (window.innerWidth <= 768) {
-                if (mainSidebar && !mainSidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                // If the sidebar is open, and we click outside BOTH the main sidebar AND the editor sidebar
+                const isClickInsideMain = mainSidebar && mainSidebar.contains(e.target);
+                const isClickInsideEditor = editorSidebar && editorSidebar.contains(e.target);
+                const isClickOnToggle = mobileMenuToggle && mobileMenuToggle.contains(e.target);
+
+                if (!isClickInsideMain && !isClickInsideEditor && !isClickOnToggle) {
                     closeAllMenus();
                 }
             }
@@ -706,6 +798,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Click to edit
             fieldItem.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent bubbling to document
                 if (!e.target.closest('.remove-field')) {
                     openSidebar(index);
                 }
@@ -730,6 +823,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function closeSidebar() {
         if (editorSidebar) editorSidebar.classList.remove('show');
         if (sidebarOverlay) sidebarOverlay.classList.remove('show');
+        document.body.style.overflow = ''; // Restore scroll
         editingFieldIndex = null;
     }
     function openSidebar(index = null) {
@@ -770,7 +864,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         updateFieldTypeUI();
-        if (editorSidebar) editorSidebar.classList.add('show');
+        if (editorSidebar) {
+            editorSidebar.classList.add('show');
+            // Ensure sidebar is visible on mobile-first viewports
+            if (window.innerWidth <= 768) {
+                document.body.style.overflow = 'hidden'; // Prevent background scroll
+            }
+        }
         if (sidebarOverlay) sidebarOverlay.classList.add('show');
     }
 
@@ -787,7 +887,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Show/hide image URL for image type
         if (type === 'image') {
-            if (mediaUrlContainer) mediaUrlContainer.style.display = 'block';
+            if (mediaUrlContainer) {
+                mediaUrlContainer.style.display = 'block';
+                // Force layout reflow for mobile
+                mediaUrlContainer.offsetHeight;
+            }
         } else {
             if (mediaUrlContainer) mediaUrlContainer.style.display = 'none';
         }
@@ -833,7 +937,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Event listeners
     if (addFieldBtn) {
-        addFieldBtn.onclick = () => openSidebar(null);
+        addFieldBtn.onclick = (e) => {
+            e.stopPropagation(); // Prevent bubbling to document
+            openSidebar(null);
+        };
     }
 
     if (closeSidebarBtn) {
@@ -893,6 +1000,7 @@ document.addEventListener("DOMContentLoaded", () => {
             renderFieldBuilder();
             updatePreview();
             closeSidebar();
+            debouncedSaveDraft();
         };
     }
 
@@ -903,6 +1011,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 renderFieldBuilder();
                 updatePreview();
                 closeSidebar();
+                debouncedSaveDraft();
             }
         };
     }
@@ -1092,6 +1201,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (libraryTab) libraryTab.classList.add('active');
                 if (libraryPane) libraryPane.classList.add('active');
+
+                // Clear draft after successful save
+                clearDraft();
 
             } catch (error) {
                 console.error('Save form error:', error);
@@ -1287,22 +1399,23 @@ document.addEventListener("DOMContentLoaded", () => {
      * @param {string} formSlug - The form slug to export
      * @param {string} formTitle - The form title for filename
      */
-    /**
-     * Export responses as CSV file
-     * @param {string} formSlug - The form slug to export
-     * @param {string} formTitle - The form title for filename
-     */
     async function exportCsv(formSlug, formTitle) {
-        if (!currentResponses || !currentResponses.length) {
-            alert('No responses to export. Please load a form with responses first.');
+        if (!filteredResponses || !filteredResponses.length) {
+            alert('No responses to export. Try clearing filters or loading a form first.');
             return;
         }
 
         try {
-            // Fetch form schema
-            const formRes = await fetch(`${API_BASE}/api/forms/${formSlug}`);
-            if (!formRes.ok) throw new Error('Form not found');
-            const form = await formRes.json();
+            // Fetch form schema (prioritize local cache)
+            let form = backendForms.find(f => f.slug === formSlug || f.id === formSlug);
+
+            if (!form) {
+                const formRes = await fetch(`${API_BASE}/api/forms/${formSlug}`);
+                if (!formRes.ok) throw new Error('Form not found');
+                form = await formRes.json();
+            }
+
+            // STRICT SCHEMA: Get all fields that are not static text/display
             const formFields = (form.config || form.fields || []).filter(f =>
                 f.type !== 'description' && f.type !== 'success_link'
             );
@@ -1310,26 +1423,32 @@ document.addEventListener("DOMContentLoaded", () => {
             // BOM for Excel UTF-8 compatibility
             let csv = "\uFEFF";
 
-            // Header
+            // Header - Strictly from schema labels
             const headers = ["Submitted At", ...formFields.map(f => f.label || f.id)];
             csv += headers.map(h => `"${h.toString().replace(/"/g, '""')}"`).join(",") + "\n";
 
-            // Rows
-            currentResponses.forEach(r => {
+            // Rows - Map every response row to the schema fields
+            filteredResponses.forEach(r => {
                 const row = [
-                    new Date(r.submitted_at).toLocaleString(),
+                    `"${new Date(r.submitted_at).toLocaleString().replace(/"/g, '""')}"`,
                     ...formFields.map(field => {
+                        // Get value by field ID
                         let value = r.data[field.id];
-                        // Handle formatting (similar to table display)
+
+                        // Handle missing data (strict requirement)
+                        if (value === null || value === undefined) {
+                            value = "";
+                        }
+
+                        // Formatting
                         if (field.type === 'file' && value && value.startsWith('http')) {
-                            value = getDisplayFilename(value, r, formFields);
+                            value = getDisplayFilename(value, r, (form.config || form.fields));
                         } else if (Array.isArray(value)) {
                             value = value.join(', ');
                         } else if (typeof value === 'boolean') {
                             value = value ? 'Yes' : 'No';
-                        } else if (value === null || value === undefined) {
-                            value = '';
                         }
+
                         return `"${String(value).replace(/"/g, '""')}"`;
                     })
                 ];
@@ -1356,8 +1475,8 @@ document.addEventListener("DOMContentLoaded", () => {
      * @param {string} formTitle - The form title for filename
      */
     async function exportXlsx(formSlug, formTitle) {
-        if (!currentResponses || !currentResponses.length) {
-            alert('No responses to export.');
+        if (!filteredResponses || !filteredResponses.length) {
+            alert('No responses to export. Try clearing filters first.');
             return;
         }
 
@@ -1367,15 +1486,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            // Fetch schema
-            const formRes = await fetch(`${API_BASE}/api/forms/${formSlug}`);
-            const form = await formRes.json();
+            // Fetch schema (prioritize local cache)
+            let form = backendForms.find(f => f.slug === formSlug || f.id === formSlug);
+
+            if (!form) {
+                const formRes = await fetch(`${API_BASE}/api/forms/${formSlug}`);
+                if (!formRes.ok) throw new Error('Form not found');
+                form = await formRes.json();
+            }
+
             const formFields = (form.config || form.fields || []).filter(f =>
                 f.type !== 'description' && f.type !== 'success_link'
             );
 
             // Prepare data
-            const data = currentResponses.map(r => {
+            const data = filteredResponses.map(r => {
                 const row = {
                     "Submitted At": new Date(r.submitted_at).toLocaleString()
                 };
@@ -1424,8 +1549,8 @@ document.addEventListener("DOMContentLoaded", () => {
      * @param {string} formTitle - The form title for the report
      */
     async function exportPdf(formSlug, formTitle) {
-        if (!currentResponses || !currentResponses.length) {
-            alert('No responses to export.');
+        if (!filteredResponses || !filteredResponses.length) {
+            alert('No responses to export. Try clearing filters first.');
             return;
         }
 
@@ -1435,8 +1560,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            const formRes = await fetch(`${API_BASE}/api/forms/${formSlug}`);
-            const form = await formRes.json();
+            // Fetch schema (prioritize local cache)
+            let form = backendForms.find(f => f.slug === formSlug || f.id === formSlug);
+
+            if (!form) {
+                const formRes = await fetch(`${API_BASE}/api/forms/${formSlug}`);
+                if (!formRes.ok) throw new Error('Form not found');
+                form = await formRes.json();
+            }
+
             const formFields = (form.config || form.fields || []).filter(f =>
                 f.type !== 'description' && f.type !== 'success_link'
             );
@@ -1585,6 +1717,313 @@ document.addEventListener("DOMContentLoaded", () => {
         return originalName;
     }
 
+    // --- ADVANCED RESPONSES LOGIC ---
+
+    function filterAndRenderResponses() {
+        if (!currentResponses) return;
+
+        filteredResponses = currentResponses.filter(r => {
+            // 1. Search filter (case-insensitive across all values)
+            const searchMatch = !responseSearchQuery || Object.values(r.data).some(val =>
+                String(val).toLowerCase().includes(responseSearchQuery.toLowerCase())
+            );
+
+            if (!searchMatch) return false;
+
+            // 2. Multi-field filters
+            for (const [fieldId, filterValue] of Object.entries(activeFilters)) {
+                if (filterValue && filterValue !== '__all__') {
+                    const cellValue = r.data[fieldId];
+                    // Handle arrays (checkbox groups)
+                    if (Array.isArray(cellValue)) {
+                        if (!cellValue.includes(filterValue)) return false;
+                    } else if (String(cellValue) !== String(filterValue)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        });
+
+        // 3. Sorting
+        filteredResponses.sort((a, b) => {
+            const dateA = new Date(a.submitted_at);
+            const dateB = new Date(b.submitted_at);
+            return responseSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+
+        // Toggle UI modes
+        const tableContainer = document.getElementById("responsesTable");
+        const statsView = document.getElementById("statsView");
+        const individualView = document.getElementById("individualView");
+
+        if (responseViewMode === "stats") {
+            if (tableContainer) tableContainer.style.display = "none";
+            if (statsView) statsView.style.display = "block";
+            if (individualView) individualView.style.display = "none";
+            renderStatsView(filteredResponses, currentFormFields);
+        } else if (responseViewMode === "individual") {
+            if (tableContainer) tableContainer.style.display = "none";
+            if (statsView) statsView.style.display = "none";
+            if (individualView) individualView.style.display = "block";
+            renderIndividualEntry(currentIndividualIndex);
+        } else {
+            if (tableContainer) tableContainer.style.display = "block";
+            if (statsView) statsView.style.display = "none";
+            if (individualView) individualView.style.display = "none";
+            renderResponsesTable(filteredResponses, currentFormFields);
+        }
+
+        // Update meta info
+        const metaEl = document.getElementById("responsesMeta");
+        if (metaEl) {
+            metaEl.innerHTML = `Showing ${filteredResponses.length} of ${currentResponses.length} responses`;
+        }
+    }
+
+    function renderIndividualEntry(index) {
+        if (!filteredResponses.length) {
+            const container = document.getElementById("individualEntryContent");
+            if (container) container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No responses match the criteria.</div>';
+            return;
+        }
+
+        // Bound index
+        if (index < 0) index = 0;
+        if (index >= filteredResponses.length) index = filteredResponses.length - 1;
+        currentIndividualIndex = index;
+
+        const response = filteredResponses[index];
+        const counter = document.getElementById("entryCounter");
+        const timestamp = document.getElementById("entryTimestamp");
+        const content = document.getElementById("individualEntryContent");
+
+        if (counter) counter.innerText = `Entry ${index + 1} of ${filteredResponses.length}`;
+        if (timestamp) timestamp.innerText = `Submitted: ${new Date(response.submitted_at).toLocaleString()}`;
+
+        if (content) {
+            let html = '<div style="display:flex; flex-direction:column; gap:25px;">';
+
+            // Standard ID field
+            html += `
+                <div style="border-bottom:1px solid var(--border); padding-bottom:15px;">
+                    <label style="display:block; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:5px;">Response ID</label>
+                    <div style="font-family:monospace; font-size:0.9rem; color:var(--text-main);">${response.id}</div>
+                </div>
+            `;
+
+            currentFormFields.forEach(field => {
+                if (field.type === 'description' || field.type === 'success_link') return;
+
+                let value = response.data[field.id];
+                let displayHtml = '';
+
+                if (field.type === 'file' && value && value.startsWith('http')) {
+                    const filename = getDisplayFilename(value, response, currentFormFields);
+                    displayHtml = `
+                        <div style="display:flex; align-items:center; gap:10px; background:var(--bg-secondary); padding:10px; border-radius:8px; border:1px solid var(--border);">
+                            <i class="fa-solid fa-file" style="color:var(--primary);"></i>
+                            <span style="flex:1; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${filename}</span>
+                            <button onclick="downloadSingleFile('${value}', '${filename}')" class="btn btn-sm btn-primary">Download</button>
+                        </div>
+                    `;
+                } else if (Array.isArray(value)) {
+                    displayHtml = value.length ? value.map(v => `<span style="display:inline-block; background:var(--bg-secondary); padding:4px 10px; border-radius:15px; font-size:0.85rem; border:1px solid var(--border); margin:2px;">${v}</span>`).join(' ') : '<span style="color:var(--text-muted); font-style:italic;">No selection</span>';
+                } else if (typeof value === 'boolean') {
+                    displayHtml = `<span style="font-weight:600; color:${value ? 'var(--success)' : 'var(--danger)'};">${value ? 'Yes' : 'No'}</span>`;
+                } else if (!value) {
+                    displayHtml = '<span style="color:var(--text-muted); font-style:italic;">(Empty)</span>';
+                } else {
+                    displayHtml = `<div style="white-space:pre-wrap; line-height:1.5;">${value}</div>`;
+                }
+
+                html += `
+                    <div style="border-bottom:1px solid var(--border); padding-bottom:15px;">
+                        <label style="display:block; font-size:0.85rem; font-weight:700; color:var(--text-main); margin-bottom:8px;">${field.label || field.id}</label>
+                        <div style="color:var(--text-secondary);">${displayHtml}</div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        // Update button states
+        const prevBtn = document.getElementById("prevEntryBtn");
+        const nextBtn = document.getElementById("nextEntryBtn");
+        if (prevBtn) prevBtn.disabled = (index === 0);
+        if (nextBtn) nextBtn.disabled = (index === filteredResponses.length - 1);
+    }
+
+    function renderStatsView(responses, formFields) {
+        const statsContent = document.getElementById("statsContent");
+        if (!statsContent) return;
+        statsContent.innerHTML = "";
+
+        if (!responses.length) {
+            statsContent.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted);">No responses match the criteria.</div>';
+            return;
+        }
+
+        // Only show stats for fields that make sense (radio, select, checkbox_group)
+        const statFields = formFields.filter(f =>
+            ['radio', 'select', 'checkbox_group', 'checkbox'].includes(f.type)
+        );
+
+        if (!statFields.length) {
+            statsContent.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted);">This form has no categorical fields to analyze.</div>';
+            return;
+        }
+
+        statFields.forEach(field => {
+            const counts = {};
+            let total = 0;
+
+            responses.forEach(r => {
+                let val = r.data[field.id];
+                if (val === undefined || val === null) return;
+
+                if (Array.isArray(val)) {
+                    val.forEach(v => {
+                        counts[v] = (counts[v] || 0) + 1;
+                        total++;
+                    });
+                } else {
+                    counts[val] = (counts[val] || 0) + 1;
+                    total++;
+                }
+            });
+
+            const card = document.createElement("div");
+            card.className = "card";
+            card.style.padding = "20px";
+            card.style.margin = "0";
+            card.style.display = "flex";
+            card.style.flexDirection = "column";
+            card.style.gap = "20px";
+
+            // Header and Layout
+            card.innerHTML = `
+                <h4 style="margin:0; font-size:1.1rem; color:var(--text-main); border-bottom:1px solid var(--border); padding-bottom:12px;">${field.label || field.id}</h4>
+                <div style="display:flex; flex-direction:row; flex-wrap:wrap; gap:30px; align-items:center; justify-content:center;">
+                    <div style="width:220px; height:220px; position:relative;">
+                        <canvas id="chart-${field.id}"></canvas>
+                    </div>
+                    <div id="legend-${field.id}" style="flex:1; min-width:200px;"></div>
+                </div>
+            `;
+
+            statsContent.appendChild(card);
+
+            const sortedOptions = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            const labels = sortedOptions.map(o => o[0]);
+            const data = sortedOptions.map(o => o[1]);
+
+            // Google Forms inspired colors
+            const colors = [
+                '#4285F4', '#DB4437', '#F4B400', '#0F9D58', '#AB47BC', '#00ACC1', '#FF7043', '#9E9E9E', '#5C6BC0', '#26A69A'
+            ];
+
+            // Initialize Chart
+            try {
+                const ctx = document.getElementById(`chart-${field.id}`).getContext('2d');
+                new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors.slice(0, labels.length),
+                            borderWidth: 1,
+                            borderColor: 'var(--bg-card)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false } // Custom legend below
+                        }
+                    }
+                });
+            } catch (chartErr) {
+                console.warn(`Chart.js failed for field ${field.id}:`, chartErr);
+                const chartContainer = document.getElementById(`chart-${field.id}`).parentElement;
+                if (chartContainer) {
+                    chartContainer.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding-top:80px;">Chart unavailable</div>';
+                }
+            }
+
+            // Build custom legend
+            const legendEl = document.getElementById(`legend-${field.id}`);
+            let legendHtml = '<div style="display:flex; flex-direction:column; gap:8px;">';
+            sortedOptions.forEach(([opt, count], i) => {
+                const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                legendHtml += `
+                    <div style="display:flex; align-items:center; gap:10px; font-size:0.9rem;">
+                        <div style="width:12px; height:12px; border-radius:3px; background:${colors[i % colors.length]};"></div>
+                        <div style="flex:1; color:var(--text-main);">${opt}</div>
+                        <div style="color:var(--text-muted); font-weight:500;">${count} (${percentage}%)</div>
+                    </div>
+                `;
+            });
+            legendHtml += '</div>';
+            legendEl.innerHTML = legendHtml;
+        });
+    }
+
+    function initFilters(responses, formFields) {
+        const filterList = document.getElementById("filterList");
+        const panel = document.getElementById("filterPanel");
+        if (!filterList) return;
+        filterList.innerHTML = "";
+
+        // Only categorical fields get filters
+        const filterableFields = formFields.filter(f =>
+            ['radio', 'select', 'checkbox_group'].includes(f.type)
+        );
+
+        if (!filterableFields.length) {
+            if (panel) panel.style.display = "none";
+            return;
+        }
+
+        filterableFields.forEach(field => {
+            const select = document.createElement("select");
+            select.className = "modal-input filter-select";
+
+            let html = `<option value="__all__">All ${field.label || field.id}</option>`;
+
+            // Get unique options from responses
+            const uniqueOptions = new Set();
+            responses.forEach(r => {
+                const val = r.data[field.id];
+                if (Array.isArray(val)) {
+                    val.forEach(v => uniqueOptions.add(v));
+                } else if (val) {
+                    uniqueOptions.add(val);
+                }
+            });
+
+            [...uniqueOptions].sort().forEach(opt => {
+                html += `<option value="${opt}" ${activeFilters[field.id] === opt ? 'selected' : ''}>${opt}</option>`;
+            });
+
+            select.innerHTML = html;
+            select.onchange = (e) => {
+                if (e.target.value === '__all__') {
+                    delete activeFilters[field.id];
+                } else {
+                    activeFilters[field.id] = e.target.value;
+                }
+                filterAndRenderResponses();
+            };
+            filterList.appendChild(select);
+        });
+    }
+
     // ===== RESPONSES DASHBOARD (GLOBAL) =====
     window.closeResponses = function () {
         // Switch back to Library tab
@@ -1614,11 +2053,27 @@ document.addEventListener("DOMContentLoaded", () => {
      * @param {string} slug - The form slug to fetch responses for
      */
     window.openResponsesPanel = async function (slug) {
-        console.log(`[Responses] Attempting to open panel for slug: ${slug}`);
+        console.log(`[Responses] Attempting to open panel for slug:`, slug);
 
         const panel = document.getElementById("responsesPanel");
         const metaEl = document.getElementById("responsesMeta");
         const tableEl = document.getElementById("responsesTable");
+        const filterPanel = document.getElementById("filterPanel");
+        const searchInput = document.getElementById("responseSearchInput");
+
+        if (!slug) {
+            console.error('[Responses] No slug provided!');
+            if (metaEl) metaEl.innerHTML = '<div style="padding:20px; color:var(--danger);">Error: No form selected.</div>';
+            return;
+        }
+
+        // Reset state for new form
+        currentResponses = [];
+        filteredResponses = [];
+        activeFilters = {};
+        responseSearchQuery = "";
+        if (searchInput) searchInput.value = "";
+        if (filterPanel) filterPanel.style.display = "none";
 
         if (!panel || !metaEl || !tableEl) {
             console.error('[Responses] Critical UI elements missing in DOM');
@@ -1640,12 +2095,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (addFormBtn) addFormBtn.style.display = 'none';
 
         try {
-            // 1. Fetch form schema FIRST
-            const formRes = await fetch(`${API_BASE}/api/forms/${slug}`);
-            if (!formRes.ok) {
-                throw new Error(`Form not found: ${formRes.status} ${formRes.statusText}`);
+            // 1. Fetch form schema (try local cache first for speed and reliability)
+            let form = backendForms.find(f => f.slug === slug || f.id === slug);
+
+            if (!form) {
+                console.log(`[Responses] Form not in local cache, fetching from API...`);
+                const formRes = await fetch(`${API_BASE}/api/forms/${slug}`);
+                if (!formRes.ok) {
+                    throw new Error(`Form not found: ${formRes.status} ${formRes.statusText}`);
+                }
+                form = await formRes.json();
             }
-            const form = await formRes.json();
 
             // Extract form fields (handle both 'config' and 'fields' property names)
             const formFields = form.config || form.fields || [];
@@ -1661,14 +2121,15 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             const responses = await respRes.json();
 
-            // Store for exports
+            // Store for filters and exports
             currentResponses = responses;
             currentFormSlug = slug;
+            currentFormFields = formFields;
             currentDesign.formTitle = formTitle;
 
-            // 3. Render using schema
-            console.log(`Rendering ${responses.length} responses with ${formFields.length} fields`);
-            renderResponsesTable(responses, formFields);
+            // 3. Initialize filters and initial render
+            initFilters(currentResponses, formFields);
+            filterAndRenderResponses();
 
         } catch (err) {
             console.error('Error fetching responses:', err);
@@ -2237,4 +2698,94 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
+    // Response Search & View Toggles
+    const responseSearchInput = document.getElementById("responseSearchInput");
+    const viewTableBtn = document.getElementById("viewTableBtn");
+    const viewStatsBtn = document.getElementById("viewStatsBtn");
+    const toggleFilterBtn = document.getElementById("toggleFilterBtn");
+    const filterPanel = document.getElementById("filterPanel");
+    const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
+    if (responseSearchInput) {
+        responseSearchInput.addEventListener("input", (e) => {
+            responseSearchQuery = e.target.value.trim();
+            filterAndRenderResponses();
+        });
+    }
+
+    const viewIndividualBtn = document.getElementById("viewIndividualBtn");
+
+    if (viewTableBtn && viewStatsBtn && viewIndividualBtn) {
+        viewTableBtn.addEventListener("click", () => {
+            responseViewMode = "table";
+            viewTableBtn.classList.add("active");
+            viewStatsBtn.classList.remove("active");
+            viewIndividualBtn.classList.remove("active");
+            filterAndRenderResponses();
+        });
+
+        viewStatsBtn.addEventListener("click", () => {
+            responseViewMode = "stats";
+            viewStatsBtn.classList.add("active");
+            viewTableBtn.classList.remove("active");
+            viewIndividualBtn.classList.remove("active");
+            filterAndRenderResponses();
+        });
+
+        viewIndividualBtn.addEventListener("click", () => {
+            responseViewMode = "individual";
+            viewIndividualBtn.classList.add("active");
+            viewTableBtn.classList.remove("active");
+            viewStatsBtn.classList.remove("active");
+            currentIndividualIndex = 0; // Reset to first found response
+            filterAndRenderResponses();
+        });
+    }
+
+    // Individual View Navigation
+    const prevEntryBtn = document.getElementById("prevEntryBtn");
+    const nextEntryBtn = document.getElementById("nextEntryBtn");
+
+    if (prevEntryBtn) {
+        prevEntryBtn.addEventListener("click", () => {
+            if (currentIndividualIndex > 0) {
+                currentIndividualIndex--;
+                renderIndividualEntry(currentIndividualIndex);
+            }
+        });
+    }
+
+    if (nextEntryBtn) {
+        nextEntryBtn.addEventListener("click", () => {
+            if (currentIndividualIndex < filteredResponses.length - 1) {
+                currentIndividualIndex++;
+                renderIndividualEntry(currentIndividualIndex);
+            }
+        });
+    }
+
+    if (toggleFilterBtn && filterPanel) {
+        toggleFilterBtn.addEventListener("click", () => {
+            const isHidden = filterPanel.style.display === "none";
+            filterPanel.style.display = isHidden ? "block" : "none";
+            toggleFilterBtn.classList.toggle("active", isHidden);
+            if (isHidden) initFilters(currentResponses, currentFormFields);
+        });
+    }
+
+    const responseSortOrderInput = document.getElementById("responseSortOrder");
+    if (responseSortOrderInput) {
+        responseSortOrderInput.addEventListener("change", (e) => {
+            responseSortOrder = e.target.value;
+            filterAndRenderResponses();
+        });
+    }
+
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener("click", () => {
+            activeFilters = {};
+            initFilters(currentResponses, currentFormFields);
+            filterAndRenderResponses();
+        });
+    }
 });
