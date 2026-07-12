@@ -99,7 +99,7 @@ Push to any branch connected to **Cloudflare Pages**. Routing is handled automat
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/ZEON-07/Custom-Form.git
+   git clone https://github.com/fossceal/forms.git
    cd Custom-Form
    ```
 
