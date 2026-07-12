@@ -1,11 +1,12 @@
 
-import { verifyToken, signToken, checkPassword } from "./auth.js";
+import { verifyToken, signToken, checkPassword, hashPassword, verifySubAdminPassword } from "./auth.js";
 import {
 	validate,
 	loginSchema,
 	saveFormSchema,
 	updateFormSchema,
-	createSubmissionSchema
+	createSubmissionSchema,
+	createAdminUserSchema
 } from "./validation.js";
 
 // Security - Rate Limiting
@@ -86,12 +87,10 @@ export default {
 		const allowedOrigins = [env.ALLOWED_ORIGIN, "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5500", "http://127.0.0.1:5500", "https://foss.ceal.in"];
 		const isOriginAllowed = !origin || allowedOrigins.includes(origin);
 
-		// If origin is present but not allowed, reject immediately for safety (or handle via CORS headers)
-		// We return generic CORS headers but specific Origin only if allowed.
 		const corsHeaders = {
 			"Access-Control-Allow-Origin": isOriginAllowed && origin ? origin : env.ALLOWED_ORIGIN,
 			"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type, Authorization",
+			"Access-Control-Allow-Headers": "Content-Type, Authorization, X-Device-Fingerprint",
 			"Access-Control-Max-Age": "86400"
 		};
 
@@ -147,35 +146,64 @@ export default {
 				return submitResponse(slug, request, env, secureRes);
 			}
 
-			// 4. Form Stats (Public?) - checking if this should be protected. 
-			// History implies it might be used publicly, but let's rate limit it at least.
 			if (url.pathname === "/api/form-stats" && request.method === "GET") {
 				const id = url.searchParams.get("id");
-				// Weak rate limit for stats
 				const isAllowed = await checkKvRateLimit(env.LIMITER, `stats:${ip}`, 20, 60);
 				if (!isAllowed) return secureRes("Too Many Requests", { status: 429 });
 
 				return getFormStats(id, env, secureRes);
 			}
 
-			// --- Protected API Routes ---
+				// --- Protected API Routes ---
 
-			// Verify Admin Token
-			// We skip this check for logic/submit/stats which are above.
-			const user = await isAuthenticated(request, env);
-			if (!user) {
-				return secureRes("Unauthorized", { status: 401 });
-			}
+				// Verify Admin Token (superadmin OR sub-admin)
+				const user = await isAuthenticated(request, env);
+				if (!user) {
+					return secureRes(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+				}
+
+				// --- Superadmin-Only: Team Management ---
+
+				// List sub-admins
+				if (url.pathname === "/api/admin/users" && request.method === "GET") {
+					if (!isSuperAdmin(user)) return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+					return listAdminUsers(env, secureRes);
+				}
+
+				// Create sub-admin
+				if (url.pathname === "/api/admin/users" && request.method === "POST") {
+					if (!isSuperAdmin(user)) return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+					const data = await parseAndValidate(request, createAdminUserSchema, 1024);
+					return createAdminUser(data, env, secureRes);
+				}
+
+				// Delete sub-admin
+				if (url.pathname.match(/^\/api\/admin\/users\/[^\/]+$/) && request.method === "DELETE") {
+					if (!isSuperAdmin(user)) return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+					const userId = url.pathname.split("/").pop();
+					return deleteAdminUser(userId, env, secureRes);
+				}
+
+				// Change sub-admin password
+				if (url.pathname === "/api/admin/password" && request.method === "PUT") {
+					// Superadmin doesn't change password here (handled by env vars)
+					if (isSuperAdmin(user)) return secureRes(JSON.stringify({ error: "Superadmin password cannot be changed here" }), { status: 403, headers: { "Content-Type": "application/json" } });
+					const data = await parseAndValidate(request, null, 1024); // Simple custom parsing
+					if (!data.newPassword || data.newPassword.length < 8) {
+						return secureRes(JSON.stringify({ error: "Password must be at least 8 characters" }), { status: 400, headers: { "Content-Type": "application/json" } });
+					}
+					return updateAdminPassword(user.username, data.newPassword, env, secureRes);
+				}
 
 			// 5. List Forms
 			if (url.pathname === "/api/forms/library/all" && request.method === "GET") {
-				return getAllForms(env, secureRes);
+				return getAllForms(env, secureRes, user);
 			}
 
 			// 6. Create Form
 			if (url.pathname === "/api/forms" && request.method === "POST") {
 				const data = await parseAndValidate(request, saveFormSchema, 1048576); // 1MB
-				return saveForm(data, env, secureRes);
+				return saveForm(data, env, secureRes, user);
 			}
 
 			// 7. Delete Form
@@ -183,7 +211,7 @@ export default {
 				// Simple schema for delete
 				const data = await parseAndValidate(request, null, 1024);
 				if (!data.slug) throw new Error("Slug is required");
-				return deleteForm(data.slug, env, secureRes);
+				return deleteForm(data.slug, env, secureRes, user);
 			}
 
 			// 8. Update Form Status
@@ -191,23 +219,23 @@ export default {
 				const slug = url.pathname.split("/")[3];
 				const data = await parseAndValidate(request, null, 1024);
 				if (!data.status) throw new Error("Status is required");
-				return updateFormStatus(slug, data.status, env, secureRes);
+				return updateFormStatus(slug, data.status, env, secureRes, user);
 			}
 
 			// 9. Responses Management
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+\/responses$/)) {
 				const slug = url.pathname.split("/")[3];
-				if (request.method === "GET") return getResponses(slug, env, secureRes);
-				if (request.method === "DELETE") return clearResponses(slug, env, secureRes);
+				if (request.method === "GET") return getResponses(slug, env, secureRes, user);
+				if (request.method === "DELETE") return clearResponses(slug, env, secureRes, user);
 			}
 
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+\/responses\/[^\/]+$/)) {
 				const slug = url.pathname.split("/")[3];
 				const responseId = url.pathname.split("/")[5];
-				if (request.method === "DELETE") return deleteResponse(responseId, env, secureRes);
+				if (request.method === "DELETE") return deleteResponse(responseId, env, secureRes, user);
 				if (request.method === "PUT") {
 					const data = await parseAndValidate(request, null, 51200);
-					return updateResponseData(responseId, data, env, secureRes);
+					return updateResponseData(responseId, data, env, secureRes, user);
 				}
 			}
 
@@ -215,7 +243,7 @@ export default {
 			if (url.pathname.match(/^\/api\/forms\/[^\/]+$/) && request.method === "PUT") {
 				const id = url.pathname.split("/").pop();
 				const data = await parseAndValidate(request, updateFormSchema, 1048576);
-				return updateForm(id, data, env, secureRes);
+				return updateForm(id, data, env, secureRes, user);
 			}
 
 			// If no API route matched, handle static assets
@@ -253,32 +281,167 @@ export default {
 // --- Logic Handlers ---
 
 async function handleLogin(data, env, secureRes, request) {
-	const { password } = data;
-	const isValid = await checkPassword(password, env.ADMIN_PASSWORD);
+	const { password, username } = data;
 
-	if (!isValid) {
-		logSecurityEvent(request, "INVALID_LOGIN_ATTEMPT");
-		// Use a generic error message
-		return secureRes(JSON.stringify({ error: "Invalid credentials" }), {
-			status: 401,
-			headers: { "Content-Type": "application/json" }
-		});
+	if (username && username.trim()) {
+		// --- Sub-Admin Login ---
+		const trimmedUsername = username.trim();
+		const userRecord = await env.DB
+			.prepare("SELECT id, username, password_hash, salt FROM admin_users WHERE username = ?")
+			.bind(trimmedUsername)
+			.first();
+
+		if (!userRecord) {
+			logSecurityEvent(request, "INVALID_SUB_ADMIN_LOGIN", { username: trimmedUsername });
+			return secureRes(JSON.stringify({ error: "Invalid credentials" }), {
+				status: 401,
+				headers: { "Content-Type": "application/json" }
+			});
+		}
+
+		const isValid = await verifySubAdminPassword(password, userRecord.password_hash, userRecord.salt);
+		if (!isValid) {
+			logSecurityEvent(request, "INVALID_SUB_ADMIN_PASSWORD", { username: trimmedUsername });
+			return secureRes(JSON.stringify({ error: "Invalid credentials" }), {
+				status: 401,
+				headers: { "Content-Type": "application/json" }
+			});
+		}
+
+		// Sign a sub-admin JWT
+		const token = await signToken(
+			{ role: "admin", username: userRecord.username },
+			env.ADMIN_PASSWORD
+		);
+		return secureRes(JSON.stringify({ token }), { headers: { "Content-Type": "application/json" } });
+
+	} else {
+		// --- Super Admin Login (password-only) ---
+		const isValid = await checkPassword(password, env.ADMIN_PASSWORD);
+
+		if (!isValid) {
+			logSecurityEvent(request, "INVALID_SUPERADMIN_LOGIN_ATTEMPT");
+			return secureRes(JSON.stringify({ error: "Invalid credentials" }), {
+				status: 401,
+				headers: { "Content-Type": "application/json" }
+			});
+		}
+
+		const token = await signToken({ role: "superadmin" }, env.ADMIN_PASSWORD);
+		return secureRes(JSON.stringify({ token }), { headers: { "Content-Type": "application/json" } });
 	}
-
-	// Sign a JWT
-	const token = await signToken({ role: "admin" }, env.ADMIN_PASSWORD);
-	// Ideally use env.SECRET_KEY, but reusing ADMIN_PASSWORD is okay for now if it's strong.
-	// Better: env.JWT_SECRET || env.ADMIN_PASSWORD
-
-	return secureRes(JSON.stringify({ token }), { headers: { "Content-Type": "application/json" } });
 }
 
 async function isAuthenticated(request, env) {
 	const auth = request.headers.get("Authorization");
-	if (!auth) return false;
-	const token = auth.replace("Bearer ", "");
-	// Verify JWT
+	if (!auth) return null;
+	const token = auth.replace("Bearer ", "").trim();
+	if (!token) return null;
+	// Verify JWT and return the payload (contains role, username, etc.)
 	return await verifyToken(token, env.ADMIN_PASSWORD);
+}
+
+/**
+ * Returns true only if the JWT payload has role === 'superadmin'.
+ */
+function isSuperAdmin(user) {
+	return user && user.role === "superadmin";
+}
+
+async function isFormOwner(slugOrId, env, user) {
+	if (isSuperAdmin(user)) return true;
+	const form = await env.DB.prepare("SELECT created_by FROM forms WHERE slug = ? OR id = ?").bind(slugOrId, slugOrId).first();
+	if (!form) return false;
+	// Treat forms with no creator (legacy) as superadmin only, unless the user matches
+	return form.created_by === user.username;
+}
+
+async function isResponseOwner(responseId, env, user) {
+	if (isSuperAdmin(user)) return true;
+	const response = await env.DB.prepare("SELECT form_slug FROM responses WHERE id = ?").bind(responseId).first();
+	if (!response) return false;
+	return await isFormOwner(response.form_slug, env, user);
+}
+
+// --- Admin User Management ---
+
+async function listAdminUsers(env, secureRes) {
+	try {
+		const { results } = await env.DB
+			.prepare("SELECT id, username, created_at FROM admin_users ORDER BY created_at ASC")
+			.all();
+		return secureRes(JSON.stringify(results || []), { headers: { "Content-Type": "application/json" } });
+	} catch (e) {
+		console.error("listAdminUsers error:", e);
+		return secureRes(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+	}
+}
+
+async function createAdminUser(data, env, secureRes) {
+	const { username, password } = data;
+
+	// Check if username already exists
+	const existing = await env.DB
+		.prepare("SELECT id FROM admin_users WHERE username = ?")
+		.bind(username.trim())
+		.first();
+
+	if (existing) {
+		return secureRes(JSON.stringify({ error: `Username "${username}" is already taken.` }), {
+			status: 409,
+			headers: { "Content-Type": "application/json" }
+		});
+	}
+
+	const id = crypto.randomUUID();
+	const salt = crypto.randomUUID();
+	const password_hash = await hashPassword(password, salt);
+	const now = Date.now();
+
+	await env.DB
+		.prepare("INSERT INTO admin_users (id, username, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)")
+		.bind(id, username.trim().toLowerCase(), password_hash, salt, now)
+		.run();
+
+	return secureRes(JSON.stringify({ success: true, id, username: username.trim().toLowerCase() }), {
+		status: 201,
+		headers: { "Content-Type": "application/json" }
+	});
+}
+
+async function deleteAdminUser(id, env, secureRes) {
+	const existing = await env.DB
+		.prepare("SELECT id FROM admin_users WHERE id = ?")
+		.bind(id)
+		.first();
+
+	if (!existing) {
+		return secureRes(JSON.stringify({ error: "User not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+	}
+
+	await env.DB.prepare("DELETE FROM admin_users WHERE id = ?").bind(id).run();
+	return secureRes(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
+}
+
+async function updateAdminPassword(username, newPassword, env, secureRes) {
+	try {
+		const existing = await env.DB.prepare("SELECT id FROM admin_users WHERE username = ?").bind(username).first();
+		if (!existing) {
+			return secureRes(JSON.stringify({ error: "User not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+		}
+		
+		const newSalt = crypto.randomUUID();
+		const newHash = await hashPassword(newPassword, newSalt);
+		
+		await env.DB.prepare("UPDATE admin_users SET password_hash = ?, salt = ? WHERE username = ?")
+			.bind(newHash, newSalt, username)
+			.run();
+			
+		return secureRes(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
+	} catch (e) {
+		console.error("updateAdminPassword error:", e);
+		return secureRes(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+	}
 }
 
 // Database Helpers
@@ -297,9 +460,22 @@ async function getFormBySlug(slug, env, secureRes) {
 	}), { headers: { "Content-Type": "application/json" } });
 }
 
-async function getAllForms(env, secureRes) {
+async function getAllForms(env, secureRes, user) {
 	try {
-		const stmt = await env.DB.prepare("SELECT * FROM forms ORDER BY updated_at DESC").all();
+		// Lazy migration: ensure created_by column exists
+		try {
+			await env.DB.prepare("ALTER TABLE forms ADD COLUMN created_by TEXT").run();
+		} catch (e) {
+			// Ignore if column already exists
+		}
+
+		let stmt;
+		if (isSuperAdmin(user)) {
+			stmt = await env.DB.prepare("SELECT * FROM forms ORDER BY updated_at DESC").all();
+		} else {
+			stmt = await env.DB.prepare("SELECT * FROM forms WHERE created_by = ? ORDER BY updated_at DESC").bind(user.username || 'unknown').all();
+		}
+
 		const results = stmt.results || [];
 		const forms = results.map(r => ({
 			...r,
@@ -314,8 +490,7 @@ async function getAllForms(env, secureRes) {
 	}
 }
 
-async function saveForm(data, env, secureRes) {
-	// 1. Enforce Defaults & Clean Data
+async function saveForm(data, env, secureRes, user) {
 	const title = data.title && data.title.trim() ? data.title.trim() : "Untitled Form";
 	const description = data.description || "";
 	const fields = data.fields || [];
@@ -326,7 +501,6 @@ async function saveForm(data, env, secureRes) {
 	};
 	const responseLimit = data.responseLimit || null;
 
-	// 2. Normalize design fields (Pro-level improvement)
 	const cleanDesign = {
 		...design,
 		banner: design.banner || null,
@@ -337,14 +511,12 @@ async function saveForm(data, env, secureRes) {
 		responseLimit
 	};
 
-	// 3. Generate System Fields
 	let baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 	if (!baseSlug) baseSlug = 'form';
 
 	let slug = baseSlug;
 	let counter = 0;
 
-	// 4. Ensure Unique Slug
 	let exists = true;
 	while (exists) {
 		const check = await env.DB.prepare("SELECT id FROM forms WHERE slug = ?").bind(slug).first();
@@ -358,11 +530,11 @@ async function saveForm(data, env, secureRes) {
 
 	const id = crypto.randomUUID();
 	const now = Date.now();
+	const creator = user && user.username ? user.username : "superadmin";
 
-	// 5. Insert into DB (Strict Contract)
 	await env.DB.prepare(`
-        INSERT INTO forms (id, slug, name, config, design, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
+        INSERT INTO forms (id, slug, name, config, design, status, created_at, updated_at, created_by)
+        VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)
     `).bind(
 		id,
 		slug,
@@ -370,7 +542,8 @@ async function saveForm(data, env, secureRes) {
 		JSON.stringify(fields), // Config maps to fields array
 		JSON.stringify(cleanDesign),
 		now,
-		now
+		now,
+		creator
 	).run();
 
 	return secureRes(JSON.stringify({ success: true, id, slug }), {
@@ -379,7 +552,10 @@ async function saveForm(data, env, secureRes) {
 	});
 }
 
-async function updateForm(targetId, data, env, secureRes) {
+async function updateForm(targetId, data, env, secureRes, user) {
+	if (!(await isFormOwner(targetId, env, user))) {
+		return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+	}
 	const { title: updatedTitle, description: updatedDescription, fields: updatedFields, design: updatedDesign, responseLimit: updatedResponseLimit } = data;
 
 	const formRecord = await env.DB.prepare(`SELECT slug FROM forms WHERE id=?`).bind(targetId).first();
@@ -392,7 +568,6 @@ async function updateForm(targetId, data, env, secureRes) {
 	const formSlug = formRecord.slug;
 	const updateTime = Date.now();
 
-	// Normalize design fields
 	const cleanDesign = {
 		...updatedDesign,
 		banner: updatedDesign.banner || null,
@@ -425,13 +600,19 @@ async function updateForm(targetId, data, env, secureRes) {
 
 }
 
-async function deleteForm(slug, env, secureRes) {
+async function deleteForm(slug, env, secureRes, user) {
+	if (!(await isFormOwner(slug, env, user))) {
+		return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+	}
 	await env.DB.prepare("DELETE FROM forms WHERE slug = ?").bind(slug).run();
 	await env.DB.prepare("DELETE FROM responses WHERE form_slug = ?").bind(slug).run();
 	return secureRes(JSON.stringify({ status: "deleted" }), { headers: { "Content-Type": "application/json" } });
 }
 
-async function updateFormStatus(slug, status, env, secureRes) {
+async function updateFormStatus(slug, status, env, secureRes, user) {
+	if (!(await isFormOwner(slug, env, user))) {
+		return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+	}
 	await env.DB.prepare("UPDATE forms SET status = ?, updated_at = ? WHERE slug = ?").bind(status, Date.now(), slug).run();
 	const updated = await env.DB.prepare(
 		"SELECT * FROM forms WHERE slug = ?"
@@ -481,11 +662,18 @@ async function submitResponse(slug, request, env, secureRes) {
 
 	const design = JSON.parse(form.design);
 
-	// Strict Single Response Enforcement (KV + IP)
+	// Strict Single Response Enforcement (KV + IP + Fingerprint)
 	if (design.allowMultipleResponses === false && env.LIMITER) {
 		const ip = request.headers.get("cf-connecting-ip") || "unknown";
-		const hasSubmitted = await env.LIMITER.get(`submitted:${slug}:${ip}`);
-		if (hasSubmitted) {
+		const fingerprint = request.headers.get("X-Device-Fingerprint");
+		
+		const hasSubmittedIP = await env.LIMITER.get(`submitted:${slug}:${ip}`);
+		let hasSubmittedFP = false;
+		if (fingerprint) {
+			hasSubmittedFP = await env.LIMITER.get(`submitted:${slug}:fp:${fingerprint}`);
+		}
+		
+		if (hasSubmittedIP || hasSubmittedFP) {
 			return secureRes(JSON.stringify({ error: "You have already submitted this form." }), {
 				status: 403,
 				headers: { "Content-Type": "application/json" }
@@ -514,7 +702,12 @@ async function submitResponse(slug, request, env, secureRes) {
 	// Record submission in KV if multiple disallowed
 	if (design.allowMultipleResponses === false && env.LIMITER) {
 		const ip = request.headers.get("cf-connecting-ip") || "unknown";
+		const fingerprint = request.headers.get("X-Device-Fingerprint");
+		
 		await env.LIMITER.put(`submitted:${slug}:${ip}`, "true", { expirationTtl: 2592000 });
+		if (fingerprint) {
+			await env.LIMITER.put(`submitted:${slug}:fp:${fingerprint}`, "true", { expirationTtl: 2592000 });
+		}
 	}
 
 	return secureRes(JSON.stringify({ status: "success" }), {
@@ -522,23 +715,35 @@ async function submitResponse(slug, request, env, secureRes) {
 	});
 }
 
-async function getResponses(slug, env, secureRes) {
+async function getResponses(slug, env, secureRes, user) {
+	if (!(await isFormOwner(slug, env, user))) {
+		return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+	}
 	const { results } = await env.DB.prepare("SELECT * FROM responses WHERE form_slug = ? ORDER BY submitted_at DESC").bind(slug).all();
 	const out = results.map(r => ({ ...r, data: JSON.parse(r.data) }));
 	return secureRes(JSON.stringify(out), { headers: { "Content-Type": "application/json" } });
 }
 
-async function clearResponses(slug, env, secureRes) {
+async function clearResponses(slug, env, secureRes, user) {
+	if (!(await isFormOwner(slug, env, user))) {
+		return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+	}
 	await env.DB.prepare("DELETE FROM responses WHERE form_slug = ?").bind(slug).run();
 	return secureRes(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
 }
 
-async function deleteResponse(id, env, secureRes) {
+async function deleteResponse(id, env, secureRes, user) {
+	if (!(await isResponseOwner(id, env, user))) {
+		return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+	}
 	await env.DB.prepare("DELETE FROM responses WHERE id = ?").bind(id).run();
 	return secureRes(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
 }
 
-async function updateResponseData(id, requestData, env, secureRes) {
+async function updateResponseData(id, requestData, env, secureRes, user) {
+	if (!(await isResponseOwner(id, env, user))) {
+		return secureRes(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+	}
 	if (!requestData || !requestData.data) { // Check structure assuming { data: ... } wrapper
 		return secureRes(JSON.stringify({ error: "Invalid data format" }), { status: 400, headers: { "Content-Type": "application/json" } });
 	}

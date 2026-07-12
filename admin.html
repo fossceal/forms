@@ -16,11 +16,38 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/dialogs.css">
+    <script src="js/dialogs.js"></script>
     <script type="module" src="js/admin.js"></script>
     <script src="js/dark-mode.js"></script>
 </head>
 
 <body>
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Change Password</h3>
+                <button id="closeChangePasswordBtn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="newPasswordInput" class="modal-input" placeholder="Enter new password (min 8 chars)" minlength="8">
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="confirmPasswordInput" class="modal-input" placeholder="Re-enter new password">
+                </div>
+                <p id="passwordError" style="color: var(--danger); font-size: 0.9rem; display: none; margin-bottom: 10px;"></p>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button id="submitPasswordBtn" class="btn btn-primary" style="flex: 1;">Update Password</button>
+                    <button id="cancelPasswordBtn" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="admin-container">
 
         <!-- Field Editor Sidebar -->
@@ -43,7 +70,19 @@
                     <li class="nav-item hidden" data-tab="responses">
                         <i class="fa-solid fa-table"></i> Responses
                     </li>
+                    <li class="nav-item superadmin-only" data-tab="team" style="display:none;">
+                        <i class="fa-solid fa-users-gear"></i> Team
+                    </li>
                 </ul>
+                
+                <div style="padding: 0 15px; margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                    <button id="changePasswordBtn" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(37,99,235,0.1); color: var(--primary); border: 1px solid rgba(37,99,235,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; font-size: 0.85rem; font-weight: 500;">
+                        <i class="fa-solid fa-key"></i> Change Password
+                    </button>
+                    <button id="logoutBtn" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(220,38,38,0.1); color: var(--danger); border: 1px solid rgba(220,38,38,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; font-size: 0.85rem; font-weight: 500;">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                    </button>
+                </div>
             </nav>
 
             <!-- Creator Showcase -->
@@ -68,7 +107,6 @@
                         <i class="fa-solid fa-envelope"></i>
                     </a>
 
-                </div>
             </div>
         </aside>
         <!-- Main Content -->
@@ -101,130 +139,217 @@
 
                         <div id="fieldBuilderList" class="builder-list"></div>
 
-                        <button id="openAddSidebarBtn" class="btn btn-primary" style="width:100%; margin-top:15px;">
-                            <i class="fa-solid fa-plus"></i> Add Field
-                        </button>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button id="openAddSidebarBtn" class="btn btn-primary" style="flex: 1;">
+                                <i class="fa-solid fa-plus"></i> Add Field
+                            </button>
+                            <button id="addSectionBtn" class="btn" style="flex: 1; border: 1px dashed var(--primary); color: var(--primary); background: rgba(37,99,235,0.05); font-weight: 500;">
+                                <i class="fa-solid fa-layer-group"></i> Add Section
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Design & Theme Section -->
                     <div class="card" style="margin-top:20px;">
-                        <h3><i class="fa-solid fa-palette"></i> Design & Theme</h3>
-                        <p class="hint">Customize the appearance of this form.</p>
+                        <h3 style="margin-bottom:15px; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-palette" style="color:var(--primary);"></i> Design & Theme</h3>
+                        <p class="hint" style="margin-bottom:20px;">Customize the appearance and core settings of this form.</p>
 
-                        <div class="form-group">
-                            <label>Form Title</label>
-                            <input type="text" id="formTitleInput" placeholder="e.g., Workshop Registration 2025">
-                            <p class="hint">The main heading displayed on the form page.</p>
-                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                            <div class="form-group" style="margin:0;">
+                                <label>Form Title</label>
+                                <input type="text" id="formTitleInput" placeholder="e.g., Workshop Registration 2025">
+                                <p class="hint">The main heading displayed on the form page.</p>
+                            </div>
 
-                        <div class="form-group">
-                            <label>Webpage Title</label>
-                            <input type="text" id="webTitleInput" placeholder="e.g., Workshop | Register Now">
-                            <p class="hint">The title as it appears in the browser tab.</p>
+                            <div class="form-group" style="margin:0;">
+                                <label>Webpage Title</label>
+                                <input type="text" id="webTitleInput" placeholder="e.g., Workshop | Register Now">
+                                <p class="hint">The title as it appears in the browser tab.</p>
+                            </div>
                         </div>
 
                         <div class="form-group">
                             <label>Form Description</label>
-                            <textarea id="formDescInput" rows="3"
+                            <textarea id="formDescInput" rows="2"
                                 placeholder="e.g., Join us for an amazing workshop experience!"></textarea>
                             <p class="hint">Optional description shown below the title.</p>
                         </div>
+                        
+                        <hr style="margin:20px 0; border:0; border-top:1px solid var(--border);">
 
-                        <div class="form-group">
-                            <label>Response Limit (Optional)</label>
-                            <input type="number" id="responseLimitInput" placeholder="e.g., 100" min="1">
-                            <p class="hint">Automatically close the form after this many responses. Leave empty for no
-                                limit.</p>
-                        </div>
-
-                        <div class="form-group checkbox-toggle" style="margin-top: 15px;">
-                            <label style="display:flex; align-items:center; cursor:pointer; font-weight: 500;">
-                                <input type="checkbox" id="allowMultipleResponsesInput" checked
-                                    style="width:20px; height:20px; margin-right:10px;">
-                                Allow multiple responses
-                            </label>
-                            <p class="hint">Shows a "Submit another response" button on the success screen.</p>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; align-items:start;">
+                            <div class="form-group" style="margin:0;">
+                                <label>Response Limit (Optional)</label>
+                                <input type="number" id="responseLimitInput" placeholder="e.g., 100" min="1">
+                                <p class="hint">Automatically close after this many responses.</p>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="visibility:hidden; display:block; margin-bottom:8px;">Spacer</label>
+                                <label style="display:flex; align-items:center; cursor:pointer; font-weight: 500; background:var(--bg-body); padding:10px 15px; border-radius:8px; border:1px solid var(--border); margin:0; height:45px;">
+                                    <input type="checkbox" id="allowMultipleResponsesInput" checked
+                                        style="width:20px; height:20px; margin-right:10px; margin-bottom:0;">
+                                    Allow multiple responses
+                                </label>
+                                <p class="hint" style="margin-top:8px;">Shows "Submit another" on success.</p>
+                            </div>
                         </div>
 
                         <hr style="margin:20px 0; border:0; border-top:1px solid var(--border);">
 
-                        <div class="form-group">
-                            <label>Theme Color</label>
-                            <div class="color-picker-wrapper">
-                                <input type="color" id="themeColorPicker" value="#db4437">
-                                <span id="colorValue">#db4437</span>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start;">
+                            <div class="form-group" style="margin:0;">
+                                <label>Theme Color</label>
+                                <div class="color-picker-wrapper" style="position:relative; display:flex; align-items:center; width: 100%;">
+                                    <div id="themeColorSwatch" style="width:24px; height:24px; border-radius:50%; background:#db4437; position:absolute; left:12px; border:1px solid rgba(0,0,0,0.1); box-shadow:0 1px 3px rgba(0,0,0,0.1); overflow:hidden;">
+                                        <input type="color" id="themeColorPicker" value="#db4437" style="opacity:0; position:absolute; inset:0; width:100%; height:100%; cursor:pointer;">
+                                    </div>
+                                    <input type="text" id="colorValueInput" class="form-input" value="#db4437" placeholder="e.g. #db4437, rgb(255,0,0), hsl(0, 100%, 50%)" style="height:42px; padding-left:46px; font-family:monospace; font-size:0.9rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);">
+                                </div>
+                                <p class="hint" style="margin-top:8px;">Updates accent color and custom cursor.</p>
                             </div>
-                            <p class="hint">Updates accent color and custom cursor.</p>
+
+                            <div class="form-group" style="margin:0;">
+                                <label>Header Banner</label>
+                                <div style="display:flex; gap:10px; align-items:center;">
+                                    <div class="custom-file-upload" style="flex:1;">
+                                        <input type="file" id="bannerUpload" accept="image/*" class="file-input-hidden">
+                                        <label for="bannerUpload" class="file-input-label" id="bannerUploadLabel">
+                                            <i class="fa-solid fa-image"></i>
+                                            <span class="file-name">Click to upload banner</span>
+                                        </label>
+                                    </div>
+                                    <button id="removeBanner" class="btn-icon-danger" style="height: 42px; width: 42px; margin:0; padding:0;"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
                         </div>
-
-                        <div class="form-group">
-                            <label>Header Banner</label>
-                            <input type="file" id="bannerUpload" accept="image/*">
-                            <button id="removeBanner" class="btn btn-outline-danger btn-sm"
-                                style="margin-top:5px;">Remove
-                                Banner</button>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Club Logo</label>
-                            <button id="manageLogoBtn" class="btn btn-outline-primary" style="width:100%;">
-                                <i class="fa-solid fa-image"></i> Manage / Upload Logo
-                            </button>
-
+                        
+                        <div class="form-group" style="margin-top:20px;">
+                            <label style="display:block;">Club Logo</label>
+                            <div style="display:flex; gap:10px; max-width: 50%;">
+                                <button id="manageLogoBtn" class="btn btn-outline-primary" style="flex:1; margin:0; padding:10px 16px;">
+                                    <i class="fa-solid fa-image"></i> Manage Logos
+                                </button>
+                                <button id="removeLogosBtn" class="btn btn-outline-danger" style="flex:1; margin:0; padding:10px 16px;">
+                                    <i class="fa-solid fa-trash-can"></i> Remove Logos
+                                </button>
+                            </div>
+                            
                             <div id="logoUploadSection"
-                                style="display:none; margin-top:10px; padding:10px; border:1px solid var(--border); border-radius:8px;">
-                                <label style="font-size:0.9rem; font-weight:500;">Light Mode Logo</label>
-                                <input type="file" id="logoLightUpload" accept="image/*" style="margin-bottom:10px;">
-                                <label style="font-size:0.9rem; font-weight:500;">Dark Mode Logo</label>
-                                <input type="file" id="logoDarkUpload" accept="image/*">
+                                style="display:none; margin-top:10px; padding:15px; background:var(--bg-body); border:1px solid var(--border); border-radius:8px; max-width: 50%;">
+                                <label style="font-size:0.85rem; display:block; margin-bottom:6px; font-weight: 600;">Light Mode Logo</label>
+                                <div class="custom-file-upload">
+                                    <input type="file" id="logoLightUpload" accept="image/*" class="file-input-hidden">
+                                    <label for="logoLightUpload" class="file-input-label" id="logoLightUploadLabel">
+                                        <i class="fa-solid fa-image"></i>
+                                        <span class="file-name">Click to upload</span>
+                                    </label>
+                                </div>
+                                <p class="hint" style="margin-top: 6px; margin-bottom: 16px; font-size: 0.75rem; line-height: 1.4;">Upload a dark or colored logo that looks good on white/light backgrounds.</p>
+
+                                <label style="font-size:0.85rem; display:block; margin-bottom:6px; font-weight: 600;">Dark Mode Logo</label>
+                                <div class="custom-file-upload">
+                                    <input type="file" id="logoDarkUpload" accept="image/*" class="file-input-hidden">
+                                    <label for="logoDarkUpload" class="file-input-label" id="logoDarkUploadLabel">
+                                        <i class="fa-solid fa-image"></i>
+                                        <span class="file-name">Click to upload</span>
+                                    </label>
+                                </div>
+                                <p class="hint" style="margin-top: 6px; font-size: 0.75rem; line-height: 1.4;">Upload a white or bright logo that stands out on dark/black backgrounds.</p>
                             </div>
                         </div>
 
-                        <hr style="margin:20px 0; border:0; border-top:1px solid var(--border);">
+                        <hr style="margin:25px 0; border:0; border-top:1px solid var(--border);">
 
-                        <div class="config-card">
-                            <div class="config-title">
-                                <span><i class="fa-solid fa-cloud"></i> Cloudinary Asset Storage</span>
-                                <a href="https://cloudinary.com/documentation/unsigned_upload" target="_blank"
-                                    id="cloudinaryHelpLink" class="help-badge">
+                        <!-- Cloudinary Config Block -->
+                        <div class="config-card" style="border:1px solid rgba(59,130,246,0.3); background:rgba(59,130,246,0.04); padding:24px; border-radius:12px; position:relative; overflow:hidden;">
+                            <div style="position:absolute; top:0; left:0; width:4px; height:100%; background:var(--primary);"></div>
+                            <div class="config-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <h4 style="margin:0; font-size:1.15rem; color:var(--primary); font-weight:600;"><i class="fa-solid fa-cloud-arrow-up"></i> Cloudinary Asset Storage</h4>
+                                <button type="button" id="openCloudinaryHelp" class="help-badge" style="background:rgba(59,130,246,0.1); color:var(--primary); border:none; cursor:pointer; padding:4px 10px; border-radius:20px; font-size:0.8rem; text-decoration:none; display:flex; align-items:center; gap:4px; font-weight:500;">
                                     <i class="fa-solid fa-circle-info"></i> How to connect?
-                                </a>
+                                </button>
                             </div>
-                            <p class="hint" style="margin-bottom:20px; font-size: 0.85rem;">Required for the
-                                <strong>"File
-                                    Upload"</strong> field type to store assets securely.
-                            </p>
+                            <p class="hint" style="margin-bottom:20px; font-size: 0.9rem; color:var(--text-secondary);">Required for the <strong>"File Upload"</strong> field type. Assets will be uploaded directly to your Cloudinary storage.</p>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom:20px;">
                                 <div>
-                                    <label>Cloud Name</label>
+                                    <label style="font-size:0.9rem; font-weight:600; margin-bottom:8px; display:block;">Cloud Name</label>
                                     <input type="text" id="cloudinaryCloudName" class="cloudinary-input"
-                                        placeholder="e.g., dxk7sh8w">
+                                        placeholder="e.g., dxk7sh8w" style="background:var(--bg-card); border-color:rgba(59,130,246,0.2);">
                                 </div>
                                 <div>
-                                    <label>Upload Preset</label>
+                                    <label style="font-size:0.9rem; font-weight:600; margin-bottom:8px; display:block;">Upload Preset</label>
                                     <input type="text" id="cloudinaryPreset" class="cloudinary-input"
-                                        placeholder="e.g., ml_default">
+                                        placeholder="e.g., ml_default" style="background:var(--bg-card); border-color:rgba(59,130,246,0.2);">
                                 </div>
                             </div>
-
-                            <p class="hint" style="margin-top:5px; font-style: italic;">
-                                <i class="fa-solid fa-key" style="font-size: 0.75rem; margin-right: 4px;"></i>
-                                Find these in Cloudinary Dashboard > Settings > Upload
-                            </p>
+                            
+                            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(59,130,246,0.15); padding-top:15px;">
+                                <p class="hint" style="margin:0; font-style: italic; color:var(--text-muted); font-size:0.85rem;">
+                                    <i class="fa-solid fa-key" style="margin-right: 4px;"></i>
+                                    Find in Dashboard > Settings > Upload
+                                </p>
+                                <button id="saveCloudinaryBtn" type="button" class="btn btn-primary btn-sm" style="display:flex; gap:6px; align-items:center; font-weight:600; padding:8px 16px;">
+                                    <i class="fa-solid fa-check"></i> Save Cloudinary Config
+                                </button>
+                            </div>
                         </div>
-
-                        <button id="removeLogosBtn" class="btn btn-outline-danger btn-sm"
-                            style="margin-top:5px; width:100%;">
-                            Remove Logos
-                        </button>
                     </div>
 
                     <!-- Save Button at Bottom -->
                     <button id="saveToLibraryBtn" class="btn btn-success"
-                        style="margin: 30px auto 10px; font-size: 1rem; padding: 12px 24px; min-width: 250px; display: block; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);">
+                        style="margin: 30px auto 10px; font-size: 1.1rem; padding: 14px 30px; min-width: 300px; display: block; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); border-radius: 50px;">
                         <i class="fa-solid fa-floppy-disk"></i> Save Form to Library
                     </button>
+                </section>
+
+                <!-- SECTION: TEAM (Superadmin only) -->
+                <section id="team" class="tab-pane">
+                    <div style="max-width:640px;">
+
+                        <!-- Create new sub-admin -->
+                        <div class="card" style="margin-bottom:24px;">
+                            <h3 style="margin:0 0 6px;"><i class="fa-solid fa-user-plus"></i> Add Team Member</h3>
+                            <p class="hint" style="margin-bottom:20px;">Create a username and password so others can access the admin panel.</p>
+
+                            <div id="teamCreateError" style="display:none; background:rgba(220,38,38,0.1); color:var(--danger); padding:10px 14px; border-radius:var(--radius); border:1px solid rgba(220,38,38,0.2); margin-bottom:16px; font-size:0.875rem;"></div>
+                            <div id="teamCreateSuccess" style="display:none; background:rgba(16,185,129,0.1); color:var(--success,#10b981); padding:10px 14px; border-radius:var(--radius); border:1px solid rgba(16,185,129,0.2); margin-bottom:16px; font-size:0.875rem;"></div>
+
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+                                <div class="form-group" style="margin:0;">
+                                    <label>Username</label>
+                                    <input type="text" id="newAdminUsername" placeholder="e.g. john_doe" autocomplete="off" spellcheck="false" style="text-transform:lowercase;">
+                                    <p class="hint" style="margin-top:4px;">Letters, numbers, underscores only (3–32 chars)</p>
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label>Password</label>
+                                    <input type="password" id="newAdminPassword" placeholder="Min. 8 characters" autocomplete="new-password">
+                                    <p class="hint" style="margin-top:4px;">Minimum 8 characters</p>
+                                </div>
+                            </div>
+                            <button id="createAdminUserBtn" class="btn btn-primary" style="min-width:160px;">
+                                <i class="fa-solid fa-user-plus"></i> Create User
+                            </button>
+                        </div>
+
+                        <!-- Current team members -->
+                        <div class="card">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                <h3 style="margin:0;"><i class="fa-solid fa-users"></i> Team Members</h3>
+                                <button id="refreshTeamBtn" class="btn btn-sm btn-outline-secondary" title="Refresh">
+                                    <i class="fa-solid fa-rotate"></i>
+                                </button>
+                            </div>
+                            <div class="search-box" style="margin-bottom: 16px;">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="teamSearchInput" placeholder="Search team members...">
+                            </div>
+                            <div id="teamMembersList">
+                                <p style="color:var(--text-muted); text-align:center; padding:20px 0;">Loading&hellip;</p>
+                            </div>
+                        </div>
+
+                    </div>
                 </section>
 
                 <!-- SECTION: RESPONSES (Integrated Tab) -->
@@ -361,13 +486,18 @@
             </div>
             <div class="sidebar-body">
                 <div class="form-group">
-                    <label>Field Label</label>
+                    <label id="editLabelTitle">Field Label / Section Title</label>
                     <input type="text" id="editLabel" placeholder="e.g., T-Shirt Size">
                 </div>
 
+                <div class="form-group" id="editDescriptionContainer" style="display:none;">
+                    <label>Section Description (Optional)</label>
+                    <textarea id="editDescription" rows="3" placeholder="Add a description for this section..." style="width:100%; padding:8px; border:1px solid var(--border); border-radius:4px; font-family:inherit;"></textarea>
+                </div>
+
                 <div class="form-group">
-                    <label>Field Type</label>
-                    <select id="editType">
+                    <label style="margin-bottom:12px; display:block;">Select Field Type</label>
+                    <select id="editType" style="display:none;">
                         <option value="text">Short Text</option>
                         <option value="textarea">Long Text</option>
                         <option value="email">Email</option>
@@ -381,13 +511,192 @@
                         <option value="success_link">Success Page Link (WhatsApp)</option>
                         <option value="image">Display Image (QR/Banner)</option>
                         <option value="file">File Upload (PDF/IMG)</option>
+                        <option value="scale">Scale Rating</option>
+                        <option value="section_break">Section Break</option>
                     </select>
+
+                    <div id="fieldTypeGrid" style="display: flex; flex-direction: column; gap: 16px; margin-top: 5px;">
+                        
+                        <div class="field-category">
+                            <div class="category-title" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Basic Inputs</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div class="type-btn" data-value="text"><i class="fa-solid fa-minus"></i> <span>Short Text</span></div>
+                                <div class="type-btn" data-value="textarea"><i class="fa-solid fa-align-left"></i> <span>Long Text</span></div>
+                                <div class="type-btn" data-value="email"><i class="fa-solid fa-at"></i> <span>Email</span></div>
+                                <div class="type-btn" data-value="tel"><i class="fa-solid fa-phone"></i> <span>Phone</span></div>
+                            </div>
+                        </div>
+
+                        <div class="field-category">
+                            <div class="category-title" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Choices</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div class="type-btn" data-value="radio"><i class="fa-regular fa-circle-dot"></i> <span>Single Choice</span></div>
+                                <div class="type-btn" data-value="checkbox_group"><i class="fa-regular fa-square-check"></i> <span>Multiple Choice</span></div>
+                                <div class="type-btn" data-value="select"><i class="fa-solid fa-caret-down"></i> <span>Dropdown</span></div>
+                                <div class="type-btn" data-value="checkbox"><i class="fa-solid fa-check"></i> <span>Confirmation</span></div>
+                            </div>
+                        </div>
+
+                        <div class="field-category">
+                            <div class="category-title" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Advanced</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div class="type-btn" data-value="date"><i class="fa-regular fa-calendar"></i> <span>Date Picker</span></div>
+                                <div class="type-btn" data-value="file"><i class="fa-solid fa-cloud-arrow-up"></i> <span>File Upload</span></div>
+                                <div class="type-btn" data-value="scale" style="grid-column: 1 / -1;"><i class="fa-solid fa-arrows-left-right-to-line"></i> <span>Scale Rating (Min to Max)</span></div>
+                            </div>
+                        </div>
+
+                        <div class="field-category">
+                            <div class="category-title" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Layout & Media</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div class="type-btn" data-value="description"><i class="fa-solid fa-font"></i> <span>Text Block</span></div>
+                                <div class="type-btn" data-value="image"><i class="fa-regular fa-image"></i> <span>Display Image</span></div>
+                                <div class="type-btn" data-value="success_link"><i class="fa-brands fa-whatsapp"></i> <span>Action Link</span></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <style>
+                        .type-btn {
+                            border: 1px solid var(--border);
+                            background: var(--bg-body);
+                            padding: 8px 12px;
+                            border-radius: 8px;
+                            text-align: left;
+                            cursor: pointer;
+                            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                            font-size: 0.85rem;
+                            font-weight: 500;
+                            color: var(--text-main);
+                            display: flex;
+                            flex-direction: row;
+                            align-items: center;
+                            justify-content: flex-start;
+                            gap: 10px;
+                            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+                        }
+                        
+                        .type-btn:hover {
+                            border-color: var(--primary);
+                            background: rgba(37,99,235,0.04);
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 8px rgba(37,99,235,0.08);
+                        }
+
+                        .type-btn.active {
+                            border-color: var(--primary);
+                            background: rgba(37,99,235,0.1);
+                            color: var(--primary);
+                            box-shadow: inset 0 0 0 1px var(--primary);
+                        }
+
+                        .type-btn.active i {
+                            color: var(--primary) !important;
+                            opacity: 1;
+                        }
+
+                        .type-btn i {
+                            font-size: 1.1rem;
+                            width: 20px;
+                            text-align: center;
+                            opacity: 0.7;
+                            color: var(--text-secondary);
+                            transition: all 0.2s;
+                        }
+
+                        /* Sidebar Input Enhancements */
+                        .editor-sidebar input[type="text"], 
+                        .editor-sidebar input[type="number"], 
+                        .editor-sidebar select, 
+                        .editor-sidebar textarea {
+                            background: var(--bg-body);
+                            border: 1px solid var(--border);
+                            border-radius: 8px;
+                            padding: 0 12px;
+                            height: 40px;
+                            font-size: 0.9rem;
+                            transition: all 0.2s ease;
+                            color: var(--text-main);
+                            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+                            box-sizing: border-box;
+                        }
+                        
+                        .editor-sidebar textarea {
+                            height: auto;
+                            padding: 10px 12px;
+                        }
+                        
+                        .editor-sidebar select {
+                            padding-right: 24px;
+                            text-overflow: ellipsis;
+                        }
+                        
+                        .editor-sidebar input:focus, 
+                        .editor-sidebar select:focus, 
+                        .editor-sidebar textarea:focus {
+                            border-color: var(--primary);
+                            box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+                            outline: none;
+                        }
+
+                        .editor-sidebar .form-group label {
+                            font-weight: 600;
+                            font-size: 0.9rem;
+                            color: var(--text-main);
+                            margin-bottom: 6px;
+                            display: block;
+                        }
+
+                        .editor-sidebar .theme-hint-box {
+                            background: rgba(37,99,235,0.02);
+                            border: 1px solid rgba(37,99,235,0.1);
+                        }
+                    </style>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', () => {
+                            const selectEl = document.getElementById('editType');
+                            const btns = document.querySelectorAll('.type-btn');
+                            
+                            function updateVisualGrid(val) {
+                                btns.forEach(btn => {
+                                    if(btn.dataset.value === val) btn.classList.add('active');
+                                    else btn.classList.remove('active');
+                                });
+                            }
+
+                            // Handle click on grid
+                            btns.forEach(btn => {
+                                btn.addEventListener('click', () => {
+                                    const val = btn.dataset.value;
+                                    selectEl.value = val;
+                                    updateVisualGrid(val);
+                                    // Manually trigger change event for admin.js conditional logic
+                                    selectEl.dispatchEvent(new Event('change'));
+                                });
+                            });
+
+                            // Intercept programmatic setting of the select value by admin.js
+                            const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+                            Object.defineProperty(selectEl, 'value', {
+                                get: function() {
+                                    return originalDescriptor.get.call(this);
+                                },
+                                set: function(val) {
+                                    originalDescriptor.set.call(this, val);
+                                    updateVisualGrid(val);
+                                }
+                            });
+                            
+                            updateVisualGrid(selectEl.value || 'text');
+                        });
+                    </script>
                 </div>
 
                 <div id="mediaUrlContainer" class="form-group theme-hint-box"
-                    style="display:none; padding:10px; border:1px solid var(--border); border-radius:4px; margin-bottom: 15px;">
+                    style="display:none; padding:15px; border-radius:8px;">
                     <label>Image Source URL</label>
-                    <input type="text" id="editMediaUrl" placeholder="https://example.com/qr-code.png"
+                    <input type="text" id="editMediaUrl" placeholder="your image url"
                         style="margin-bottom: 10px;">
 
                     <div id="sidebarImagePreviewContainer"
@@ -398,17 +707,40 @@
 
                     <label style="font-size: 0.8rem; opacity: 0.8;">Or Upload Image</label>
                     <input type="file" id="editImageUpload" accept="image/*" style="font-size: 0.8rem;">
-                    <p style="margin-top: 5px; font-size: 0.75rem; color: #ea580c; font-style: italic;">
-                        <i class="fa-solid fa-circle-exclamation"></i> Direct upload is W.I.P. Please use "Image Source
-                        URL" for stable results.
-                    </p>
                     <p id="imageUploadStatus" class="hint" style="margin-top: 5px; font-weight: 500;"></p>
                 </div>
 
                 <div id="linkUrlContainer" class="form-group theme-hint-box"
-                    style="display:none; padding:10px; border:1px solid var(--border); border-radius:4px; margin-bottom: 15px;">
-                    <label>Link URL (e.g., WhatsApp Group)</label>
-                    <input type="text" id="editLinkUrl" placeholder="https://chat.whatsapp.com/...">
+                    style="display:none; padding:15px; border-radius:8px;">
+                    <label>App / Platform</label>
+                    <select id="editLinkApp" style="margin-bottom: 10px;">
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="telegram">Telegram</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="custom">Custom (Default Link)</option>
+                    </select>
+
+                    <label>Link URL (e.g., https://chat.whatsapp.com/...)</label>
+                    <input type="text" id="editLinkUrl" placeholder="https://...">
+                </div>
+
+                <div id="scaleLimitContainer" class="form-group theme-hint-box"
+                    style="display:none; padding:15px; border-radius:8px;">
+                    <label>Scale Range (Min to Max)</label>
+                    <div style="display:flex; gap:10px; margin-bottom: 5px;">
+                        <input type="number" id="editScaleMin" placeholder="Min (e.g., 0)" value="0" style="flex:1;">
+                        <span style="display:flex; align-items:center; font-weight:600;">to</span>
+                        <input type="number" id="editScaleLimit" placeholder="Max (e.g., 10)" value="10" min="1" max="100" style="flex:1;">
+                    </div>
+                    <p class="hint">Users can select a value within this range.</p>
+                </div>
+
+                <div id="scaleBranchingContainer" class="form-group theme-hint-box"
+                    style="display:none; padding:15px; border-radius:8px;">
+                    <label>Scale Branching (Optional)</label>
+                    <div id="scaleBranchingList" style="display:flex; flex-direction:column; gap:8px;"></div>
+                    <p class="hint">Define where the user goes next based on their selected scale value.</p>
                 </div>
 
                 <div class="form-group checkbox-toggle">
@@ -423,8 +755,9 @@
                     style="display:none; border-top:1px solid var(--border); padding-top:15px; margin-top:15px;">
                     <label>Options</label>
                     <div id="optionsList"></div>
-                    <button id="addOptionBtn" class="btn btn-sm btn-outline-primary" style="margin-top:10px;">+ Add
-                        Option</button>
+                    <button id="addOptionBtn" class="btn" style="width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--primary); color: var(--primary); padding: 10px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
+                        <i class="fa-solid fa-plus"></i> Add Option
+                    </button>
                 </div>
             </div>
             <div class="sidebar-footer-panel">
@@ -444,6 +777,28 @@
             <div class="modal-actions">
                 <button id="modalCancel" class="btn btn-outline-secondary">Cancel</button>
                 <button id="modalConfirm" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cloudinary Help Modal -->
+    <div id="cloudinaryHelpModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 500px; text-align: left;">
+            <h3 style="margin-top:0; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Cloudinary Setup Guide
+            </h3>
+            <div style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main); margin-bottom: 20px;">
+                <ol style="padding-left: 20px; margin-bottom: 0;">
+                    <li style="margin-bottom: 10px;">Sign up for a free account at <strong>cloudinary.com</strong>.</li>
+                    <li style="margin-bottom: 10px;">In your Cloudinary Dashboard, find your <strong>Cloud Name</strong> at the top right or in your programmable media settings.</li>
+                    <li style="margin-bottom: 10px;">Go to <strong>Settings > Upload</strong> (gear icon).</li>
+                    <li style="margin-bottom: 10px;">Scroll down to <strong>Upload presets</strong> and click <strong>Add upload preset</strong>.</li>
+                    <li style="margin-bottom: 10px;">Set "Signing Mode" to <strong>Unsigned</strong>. Save it and copy the Preset Name.</li>
+                    <li>Paste your Cloud Name and Preset Name here in KumoFumi and click <strong>Save Config</strong>.</li>
+                </ol>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button id="closeCloudinaryHelpModal" class="btn btn-primary">Got it!</button>
             </div>
         </div>
     </div>
@@ -492,6 +847,31 @@
 
 
     <style>
+        /* ===== DRAG & DROP FIELD REORDER ===== */
+        .field-item {
+            transition: opacity 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+
+        .field-item.dragging {
+            opacity: 0.4;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: scale(0.99);
+        }
+
+        .field-item.drag-over {
+            border-top: 2px solid var(--primary, #2563eb) !important;
+            background: var(--bg-secondary, #f9fafb);
+        }
+
+        .drag-handle:hover {
+            color: var(--primary, #2563eb) !important;
+            background: var(--bg-secondary, #f3f4f6);
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
         /* ===== RESPONSES PANEL ===== */
         #responses {
             width: 100%;

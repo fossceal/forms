@@ -48,3 +48,14 @@ CREATE TABLE IF NOT EXISTS form_stats (
     response_count INTEGER DEFAULT 0,
     last_response_at INTEGER
 );
+
+-- Sub-admin user accounts (created by Super Admin via dashboard)
+CREATE TABLE IF NOT EXISTS admin_users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL COLLATE NOCASE,
+    password_hash TEXT NOT NULL,   -- hex(SHA-256(salt + ":" + password))
+    salt TEXT NOT NULL,            -- crypto.randomUUID() per user
+    created_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);

@@ -1,0 +1,98 @@
+/* Custom Dialog Overlay */
+.custom-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Custom Dialog Box */
+.custom-dialog-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    width: 90%;
+    max-width: 400px;
+    padding: 32px 28px 28px 28px;
+    animation: scaleUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+}
+
+/* Content Text */
+.custom-dialog-content {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 32px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--text-main);
+    word-break: break-word;
+}
+
+/* Action Buttons Container */
+.custom-dialog-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+}
+
+/* Dialog Buttons */
+.custom-dialog-btn {
+    flex: 1; /* Make buttons equal width */
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    outline: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-dialog-btn-primary {
+    background: var(--primary, #3b82f6);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.custom-dialog-btn-primary:hover {
+    background: var(--primary-hover, #2563eb);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+}
+
+.custom-dialog-btn-secondary {
+    background: transparent;
+    color: var(--text-main);
+    border: 1px solid var(--border);
+}
+
+.custom-dialog-btn-secondary:hover {
+    background: var(--bg-body, rgba(0,0,0,0.05));
+    border-color: var(--text-muted);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}

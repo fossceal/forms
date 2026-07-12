@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KumoFumi – Cloud Forms</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=VT323&family=DotGothic16&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="css/form.css">
+    <script type="module" src="js/form-loader.js"></script>
+    <link rel="stylesheet" href="css/dialogs.css">
+    <script src="js/dialogs.js"></script>
+    <script type="module" src="js/form-logic.js"></script>
+    <script src="js/dark-mode.js"></script>
+
+
+
+
+</head>
+
+<body>
+
+    <!-- Header Controls: Settings & Theme Toggle -->
+    <div class="header-controls">
+        <button id="themeToggle" class="control-btn" aria-label="Toggle Dark Mode">
+            <i class="fa-solid fa-sun sun-icon"></i>
+        </button>
+    </div>
+
+    <div class="container">
+
+        <!-- Form Header Card -->
+        <div class="form-header-card" id="formHeaderCard">
+            <div class="header-banner"></div>
+            <div class="header-content">
+                <img src="" alt="Logo" class="club-logo-img" id="dynamicLogo" style="display:none;">
+
+                <div class="header-text-wrapper" id="headerTextWrapper">
+                    <h1 class="form-title" id="dynamicFormTitle"></h1>
+                    <p class="form-subtitle" id="dynamicFormDescription" style="display:none;"></p>
+                </div>
+            </div>
+        </div>
+
+        <form id="registrationForm" class="registration-form">
+
+            <div id="formFieldsContainer">
+                <!-- Sections will be rendered here dynamically -->
+            </div>
+
+            <div id="formProgressContainer" style="display:none; text-align:right; font-size:0.85rem; color:var(--theme-text-secondary); margin-bottom:10px; font-weight:500;">
+                Page <span id="currentPageIndicator">1</span> of <span id="totalPagesIndicator">1</span>
+            </div>
+
+            <div class="form-actions" id="formActionsContainer">
+                <div style="display:flex; gap:10px;">
+                    <button type="button" id="backBtn" class="submit-btn" style="display:none; background:var(--theme-border); color:var(--theme-text-main);"><span class="btn-text">Back</span></button>
+                    <button type="button" id="nextBtn" class="submit-btn" style="display:none;"><span class="btn-text">Next</span></button>
+                    <button type="submit" id="submitBtn" class="submit-btn"><span class="btn-text">Submit</span></button>
+                </div>
+                <button type="button" class="clear-btn"
+                    onclick="document.getElementById('registrationForm').reset()">Clear
+                    form</button>
+            </div>
+
+        </form>
+
+        <div class="success-message" id="successMessage">
+            <div class="success-icon-wrapper">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h2 class="success-title">Registration Successful</h2>
+            <p class="form-subtitle">Your response has been recorded.</p>
+
+            <div class="whatsapp-group-container" id="whatsappGroupContainer" style="display: none;">
+                <p style="margin-bottom: 15px; color: var(--theme-text-main); font-weight: 500;">Please join the group
+                    for updates:</p>
+                <a href="https://chat.whatsapp.com/YOUR_LINK_HERE" class="whatsapp-link-btn" id="whatsappLink"
+                    target="_blank">
+                    <svg viewBox="0 0 32 32" width="20" height="20" fill="white">
+                        <path
+                            d="M16 2C8.28 2 2 8.28 2 16c0 2.82.74 5.45 2.03 7.74L2 30l6.45-2.03A13.94 13.94 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2z" />
+                    </svg>
+                    Join WhatsApp Group
+                </a>
+            </div>
+
+            <button class="success-btn" id="registerAnother">Submit another response</button>
+        </div>
+
+        <!-- Form Closed Message -->
+        <div class="form-closed-message" id="formClosedMessage">
+            <div class="closed-icon">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 class="closed-title">This Forms is Closed</h2>
+            <p class="form-subtitle">This form is no longer accepting responses.</p>
+            <p class="form-subtitle" style="margin-top: 15px; font-size: 0.9rem;">
+                If you believe this is an error, please contact the form administrator.
+            </p>
+        </div>
+
+    </div>
+    <div class="form-footer">
+        <p id="copyrightText">© <span id="currentYear"></span> KumoFumi by Zeon. All rights reserved.</p>
+    </div>
+
+    <!-- Set current year dynamically -->
+    <script>
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
+</body>
+
+</html>

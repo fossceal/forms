@@ -11,6 +11,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     const formSlug = urlParams.get('form') || urlParams.get('id');
 
+    // --- 3-Minute Idle Timeout (Privacy Security for Shared Devices) ---
+    let userIdleTimer;
+    const USER_IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
+    function resetUserIdleTimer() {
+        clearTimeout(userIdleTimer);
+        userIdleTimer = setTimeout(() => {
+            // Do not reset if the form is already successfully submitted or closed
+            if (form.style.display !== "none") {
+                alert("Your session has timed out due to inactivity. The form has been reset for your privacy.");
+                window.location.reload();
+            }
+        }, USER_IDLE_TIMEOUT_MS);
+    }
+
+    // Set initial timer
+    resetUserIdleTimer();
+
+    // Reset timer on any user activity
+    const activityEvents = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    activityEvents.forEach(evt => {
+        document.addEventListener(evt, resetUserIdleTimer, true);
+    });
+
     // Regional
     const countryData = [
         { name: "Afghanistan", code: "AF", dial: "+93", flag: "🇦🇫", len: [9] },
@@ -160,6 +184,9 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // Generate device fingerprint in background
+        window.deviceFingerprint = await generateDeviceFingerprint();
+
         // Status check
         if (window.formContext.status === "closed") {
             enforceClosedUI("Form is Closed", "This form is no longer accepting responses.");
@@ -202,6 +229,35 @@ document.addEventListener("DOMContentLoaded", () => {
         if (closeBtn) closeBtn.style.display = "none";
     }
 
+    async function generateDeviceFingerprint() {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = "top";
+            ctx.font = "14px 'Arial'";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillStyle = "#f60";
+            ctx.fillRect(125,1,62,20);
+            ctx.fillStyle = "#069";
+            ctx.fillText("KumoFumi,123", 2, 15);
+            ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+            ctx.fillText("KumoFumi,123", 4, 17);
+            
+            const dataStr = canvas.toDataURL() + navigator.userAgent + screen.colorDepth + screen.width + screen.height + new Date().getTimezoneOffset();
+            
+            // Basic hash
+            let hash = 0;
+            for (let i = 0; i < dataStr.length; i++) {
+                const char = dataStr.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        } catch(e) {
+            return "unknown-device-" + Math.random().toString(36).substring(7);
+        }
+    }
+
     // Rendering
     window.renderForm = function renderForm() {
         if (formSlug) {
@@ -220,8 +276,37 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        let currentSectionDiv = document.createElement("div");
+        currentSectionDiv.className = "form-section-page";
+        container.appendChild(currentSectionDiv);
+
         config.forEach(field => {
             if (field.type === 'success_link') return;
+
+            if (field.type === 'section_break') {
+                currentSectionDiv = document.createElement("div");
+                currentSectionDiv.className = "form-section-page";
+                currentSectionDiv.style.display = "none";
+                
+                if (field.label || field.description) {
+                    const header = document.createElement("div");
+                    header.className = "section-header";
+                    header.style.marginBottom = "25px";
+                    header.style.paddingBottom = "15px";
+                    header.style.borderBottom = "1px solid var(--theme-border)";
+                    
+                    if (field.label) {
+                        header.innerHTML += `<h2 style="font-size:1.5rem; color:var(--theme-text-main); margin:0 0 8px 0;">${field.label}</h2>`;
+                    }
+                    if (field.description) {
+                        header.innerHTML += `<p style="font-size:1rem; color:var(--theme-text-secondary); margin:0; white-space:pre-wrap;">${field.description}</p>`;
+                    }
+                    currentSectionDiv.appendChild(header);
+                }
+
+                container.appendChild(currentSectionDiv);
+                return;
+            }
 
             const wrapper = document.createElement("div");
             wrapper.className = "form-group";
@@ -237,7 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 img.style.marginBottom = "15px";
                 img.style.display = "block";
                 wrapper.appendChild(img);
-                container.appendChild(wrapper);
+                currentSectionDiv.appendChild(wrapper);
                 return;
             }
 
@@ -285,11 +370,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 case "radio":
                     html += `<div class="radio-group">
                         ${(field.options || []).map(opt => {
-                        const label = typeof opt === 'object' ? opt.label : opt;
-                        const value = typeof opt === 'object' ? opt.value : opt;
+                        const label = typeof opt === 'object' ? (opt.label || '') : opt;
+                        const value = typeof opt === 'object' ? (opt.value || label) : opt;
+                        const goto = typeof opt === 'object' ? (opt.goto || 'continue') : 'continue';
                         return `
                                 <label class="radio-option">
-                                    <input type="radio" name="${field.id}" value="${value}" ${field.required ? 'required' : ''}> <span>${label}</span>
+                                    <input type="radio" name="${field.id}" value="${value}" data-goto="${goto}" ${field.required ? 'required' : ''}> <span>${label}</span>
                                 </label>
                             `;
                     }).join('')}
@@ -297,11 +383,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     break;
                 case "select":
                     html += `<select id="${field.id}" name="${field.id}" class="form-input" ${field.required ? 'required' : ''}>
-                        <option value="">Select...</option>
+                        <option value="" data-goto="continue">Select...</option>
                         ${(field.options || []).map(opt => {
-                        const label = typeof opt === 'object' ? opt.label : opt;
-                        const value = typeof opt === 'object' ? opt.value : opt;
-                        return `<option value="${value}">${label}</option>`;
+                        const label = typeof opt === 'object' ? (opt.label || '') : opt;
+                        const value = typeof opt === 'object' ? (opt.value || label) : opt;
+                        const goto = typeof opt === 'object' ? (opt.goto || 'continue') : 'continue';
+                        return `<option value="${value}" data-goto="${goto}">${label}</option>`;
                     }).join('')}
                     </select>`;
                     break;
@@ -318,9 +405,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         ${(field.options || []).map(opt => {
                         const label = typeof opt === 'object' ? opt.label : opt;
                         const value = typeof opt === 'object' ? opt.value : opt;
+                        const goto = typeof opt === 'object' ? (opt.goto || 'continue') : 'continue';
                         return `
                                 <label class="checkbox-option">
-                                    <input type="checkbox" name="${field.id}" value="${value}"> <span>${label}</span>
+                                    <input type="checkbox" name="${field.id}" value="${value}" data-goto="${goto}"> <span>${label}</span>
                                 </label>
                             `;
                     }).join('')}
@@ -341,11 +429,26 @@ document.addEventListener("DOMContentLoaded", () => {
                     html += `<input type="file" id="${field.id}" name="${field.id}" class="form-input" ${field.required ? 'required' : ''} style="font-size: 0.9rem; padding: 10px 0;">
                              <p class="hint" style="font-size: 0.75rem; color: var(--theme-text-secondary); margin-top: 4px;">Max size 10MB. IMG, PDF supported.</p>`;
                     break;
+                case "scale":
+                    const min = field.scaleMin !== undefined ? field.scaleMin : 0;
+                    const max = field.scaleLimit !== undefined ? field.scaleLimit : 10;
+                    const scaleBranchingStr = field.scaleBranching ? JSON.stringify(field.scaleBranching).replace(/'/g, "&#39;") : "{}";
+                    html += `
+                    <div style="display:flex; align-items:center; gap:15px; margin-top:5px;">
+                        <input type="range" id="${field.id}" name="${field.id}" min="${min}" max="${max}" value="${min}" style="flex:1; cursor:pointer;" 
+                               data-scale-branching='${scaleBranchingStr}'
+                               oninput="document.getElementById('${field.id}_val').textContent = this.value">
+                        <span id="${field.id}_val" style="font-weight:700; width:35px; text-align:center; font-size:1.1rem; color:var(--primary); background:var(--bg-body); padding:4px 0; border-radius:4px; border:1px solid var(--theme-border);">${min}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--theme-text-secondary); margin-top:5px;">
+                        <span>${min}</span><span>${max}</span>
+                    </div>`;
+                    break;
             }
 
             html += `<span class="error-message" id="${field.id}Error" style="display:none; color: #dc2626; font-size: 0.85rem; margin-top: 4px;">This field is required</span>`;
             wrapper.innerHTML = html;
-            container.appendChild(wrapper);
+            currentSectionDiv.appendChild(wrapper);
 
             // Setup dynamic phone validation & searchable picker
             if (field.type === 'tel') {
@@ -425,7 +528,207 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         });
+
+        // Initialize section navigation
+        initSectionNavigation();
     };
+
+    window.currentSectionIndex = 0;
+    window.sectionHistory = [];
+
+    function initSectionNavigation() {
+        const sections = document.querySelectorAll('.form-section-page');
+        const backBtn = document.getElementById('backBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const progressContainer = document.getElementById('formProgressContainer');
+        const currentPageIndicator = document.getElementById('currentPageIndicator');
+        const totalPagesIndicator = document.getElementById('totalPagesIndicator');
+
+        const config = window.formContext?.config || [];
+        const design = window.formContext?.design || {};
+        
+        // Build map of sections: index => { defaultGoto: "...", id: "..." }
+        const sectionMeta = [];
+        sectionMeta.push({ id: 'section1', defaultGoto: design.section1Goto || 'continue' });
+        
+        config.forEach(f => {
+            if (f.type === 'section_break') {
+                sectionMeta.push({ id: f.id, defaultGoto: f.goto || 'continue' });
+            }
+        });
+
+        if (sections.length > 1) {
+            progressContainer.style.display = 'block';
+            totalPagesIndicator.textContent = sections.length;
+        } else {
+            progressContainer.style.display = 'none';
+        }
+        
+        function navigateTo(targetGoto) {
+            window.navigateToSection = navigateTo; // Expose for submit interceptor
+            
+            if (targetGoto === 'submit') {
+                // hide all sections, show submit btn, hide next btn
+                sections.forEach(sec => sec.style.display = 'none');
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'block';
+                if (progressContainer) progressContainer.style.display = 'none';
+                if (backBtn) backBtn.style.display = 'block'; // allow going back from submit screen
+                window.sectionHistory.push(window.currentSectionIndex);
+                window.currentSectionIndex = -1; // -1 means submit screen
+                window.scrollTo(0, 0);
+                return;
+            }
+            
+            // Handle exit with custom message
+            if (targetGoto === 'exit' || targetGoto.startsWith('exit:')) {
+                const exitMessage = targetGoto.startsWith('exit:') ? targetGoto.substring(5) : '';
+                const displayMessage = exitMessage || 'You do not meet the criteria for this form.';
+                sections.forEach(sec => sec.style.display = 'none');
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'none';
+                if (progressContainer) progressContainer.style.display = 'none';
+                
+                // Show exit message in a dedicated container
+                let exitContainer = document.getElementById('formExitMessage');
+                if (!exitContainer) {
+                    exitContainer = document.createElement('div');
+                    exitContainer.id = 'formExitMessage';
+                    exitContainer.className = 'form-exit-message';
+                    form.parentNode.insertBefore(exitContainer, form.nextSibling);
+                }
+                exitContainer.innerHTML = `
+                    <div class="exit-icon-wrapper">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </div>
+                    <h2 class="exit-title">${displayMessage}</h2>
+                `;
+                exitContainer.style.display = 'block';
+                
+                // Hide the form and header
+                form.style.display = 'none';
+                const headerCard = document.getElementById("formHeaderCard");
+                if (headerCard) headerCard.style.display = "none";
+                
+                window.scrollTo(0, 0);
+                return;
+            }
+            
+            let nextIndex = window.currentSectionIndex + 1;
+            if (targetGoto !== 'continue') {
+                const foundIndex = sectionMeta.findIndex(m => m.id === targetGoto);
+                if (foundIndex !== -1) {
+                    nextIndex = foundIndex;
+                }
+            }
+            
+            if (nextIndex < sections.length) {
+                window.sectionHistory.push(window.currentSectionIndex);
+                window.currentSectionIndex = nextIndex;
+                showSection(window.currentSectionIndex);
+                window.scrollTo(0, 0);
+            } else {
+                // If it goes past the end, just go to submit
+                navigateTo('submit');
+            }
+        }
+
+        function showSection(index) {
+            if (index === -1) return; // handled by navigateTo submit
+            
+            sections.forEach((sec, i) => {
+                sec.style.display = (i === index) ? 'block' : 'none';
+            });
+            
+            if (progressContainer) progressContainer.style.display = sections.length > 1 ? 'block' : 'none';
+            if (currentPageIndicator) currentPageIndicator.textContent = index + 1;
+
+            if (window.sectionHistory.length === 0) {
+                if (backBtn) backBtn.style.display = 'none';
+            } else {
+                if (backBtn) backBtn.style.display = 'block';
+            }
+
+            const isLast = (index === sections.length - 1);
+            const defaultGoto = sectionMeta[index]?.defaultGoto || 'continue';
+            const defaultIsSubmit = defaultGoto === 'submit';
+            const defaultIsExit = defaultGoto === 'exit' || defaultGoto.startsWith('exit:');
+            
+            if (defaultIsExit) {
+                // Exit sections always show Next (clicking Next triggers the exit screen)
+                if (nextBtn) nextBtn.style.display = 'block';
+                if (submitBtn) submitBtn.style.display = 'none';
+            } else if (isLast || defaultIsSubmit) {
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'block';
+            } else {
+                if (nextBtn) nextBtn.style.display = 'block';
+                if (submitBtn) submitBtn.style.display = 'none';
+            }
+        }
+
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                const currentSection = sections[window.currentSectionIndex];
+                const inputs = currentSection.querySelectorAll('input, select, textarea');
+                let isValid = true;
+                
+                // Trigger HTML5 validation for fields in current section
+                for (let input of inputs) {
+                    if (!input.checkValidity()) {
+                        input.reportValidity();
+                        isValid = false;
+                        break; // Stop at first error
+                    }
+                }
+
+                if (isValid) {
+                    let targetGoto = sectionMeta[window.currentSectionIndex]?.defaultGoto || 'continue';
+                    
+                    const branchingInputs = currentSection.querySelectorAll('input[type="radio"]:checked, select, input[type="checkbox"]:checked, input[type="range"]');
+                    for (const input of branchingInputs) {
+                        let gotoVal = null;
+                        if (input.tagName === 'SELECT') {
+                            const selectedOpt = input.options[input.selectedIndex];
+                            if (selectedOpt && selectedOpt.value) {
+                                gotoVal = selectedOpt.getAttribute('data-goto');
+                            }
+                        } else if (input.type === 'radio' || input.type === 'checkbox') {
+                            gotoVal = input.getAttribute('data-goto');
+                        } else if (input.type === 'range') {
+                            const branchingStr = input.getAttribute('data-scale-branching');
+                            if (branchingStr) {
+                                try {
+                                    const branchingObj = JSON.parse(branchingStr);
+                                    gotoVal = branchingObj[input.value];
+                                } catch(e) {}
+                            }
+                        }
+                        
+                        if (gotoVal && gotoVal !== 'continue') {
+                            targetGoto = gotoVal;
+                            break; 
+                        }
+                    }
+                    
+                    navigateTo(targetGoto);
+                }
+            };
+        }
+
+        if (backBtn) {
+            backBtn.onclick = () => {
+                if (window.sectionHistory.length > 0) {
+                    window.currentSectionIndex = window.sectionHistory.pop();
+                    showSection(window.currentSectionIndex);
+                    window.scrollTo(0, 0);
+                }
+            };
+        }
+
+        showSection(window.currentSectionIndex);
+    }
 
     // Trigger initial render if context exists
 
@@ -433,11 +736,86 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        // Use Native HTML5 Validation (Google Forms Style)
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
+        // 0. Intercept if branching overrides the submit action (e.g. Exit Form)
+        const sectionsList = document.querySelectorAll('.form-section-page');
+        const currSec = sectionsList[window.currentSectionIndex];
+        if (currSec) {
+            let interceptGoto = null;
+            const branchingInputs = currSec.querySelectorAll('input[type="radio"]:checked, select, input[type="checkbox"]:checked, input[type="range"]');
+            for (const input of branchingInputs) {
+                let gotoVal = null;
+                if (input.tagName === 'SELECT') {
+                    const selectedOpt = input.options[input.selectedIndex];
+                    if (selectedOpt && selectedOpt.value) gotoVal = selectedOpt.getAttribute('data-goto');
+                } else if (input.type === 'radio' || input.type === 'checkbox') {
+                    gotoVal = input.getAttribute('data-goto');
+                } else if (input.type === 'range') {
+                    const branchingStr = input.getAttribute('data-scale-branching');
+                    if (branchingStr) {
+                        try {
+                            const branchingObj = JSON.parse(branchingStr);
+                            gotoVal = branchingObj[input.value];
+                        } catch(err) {}
+                    }
+                }
+                
+                if (gotoVal && gotoVal !== 'continue' && gotoVal !== 'submit') {
+                    interceptGoto = gotoVal;
+                    break;
+                }
+            }
+
+            if (interceptGoto && window.navigateToSection) {
+                let isValidHTML5 = form.checkValidity();
+                if (!isValidHTML5) {
+                    form.reportValidity();
+                    return;
+                }
+                window.navigateToSection(interceptGoto);
+                return; // Stop form submission
+            }
         }
+
+        // 1. Identify which sections were actually visited
+        const sections = document.querySelectorAll('.form-section-page');
+        const visitedSections = window.sectionHistory ? [...window.sectionHistory] : [];
+        if (window.currentSectionIndex !== undefined && window.currentSectionIndex !== -1) {
+            visitedSections.push(window.currentSectionIndex);
+        }
+
+        // 2. Disable required validation for unvisited sections
+        sections.forEach((sec, idx) => {
+            if (!visitedSections.includes(idx)) {
+                const inputs = sec.querySelectorAll('input, select, textarea');
+                inputs.forEach(inp => {
+                    if (inp.required) {
+                        inp.dataset.wasRequired = 'true';
+                        inp.required = false;
+                    }
+                });
+            }
+        });
+
+        // 3. Use Native HTML5 Validation (Google Forms Style)
+        let isValidHTML5 = form.checkValidity();
+        if (!isValidHTML5) {
+            form.reportValidity();
+        }
+
+        // 4. Restore required attributes for form state integrity
+        sections.forEach((sec, idx) => {
+            if (!visitedSections.includes(idx)) {
+                const inputs = sec.querySelectorAll('input, select, textarea');
+                inputs.forEach(inp => {
+                    if (inp.dataset.wasRequired === 'true') {
+                        inp.required = true;
+                        delete inp.dataset.wasRequired;
+                    }
+                });
+            }
+        });
+
+        if (!isValidHTML5) return;
 
         // Custom validation for non-native cases if any
         if (!validateForm()) return;
@@ -474,7 +852,11 @@ document.addEventListener("DOMContentLoaded", () => {
                             body: formData
                         });
 
-                        if (!uploadRes.ok) throw new Error("File upload failed");
+                        if (!uploadRes.ok) {
+                            const errData = await uploadRes.json().catch(()=>({}));
+                            console.error("Cloudinary Error:", errData);
+                            throw new Error(errData.error?.message || "File upload failed. Ensure your Cloudinary Preset is 'Unsigned'.");
+                        }
                         const uploadResult = await uploadRes.json();
                         fileUrls[field.id] = uploadResult.secure_url;
                     }
@@ -489,14 +871,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (btnText) btnText.textContent = "Submitting...";
 
-        const formData = collectData(fileUrls);
+        // Collect names of all inputs within visited sections to filter them
+        const validFields = new Set();
+        sections.forEach((sec, idx) => {
+            if (visitedSections.includes(idx)) {
+                sec.querySelectorAll('input, select, textarea').forEach(inp => {
+                    if (inp.name) validFields.add(inp.name);
+                });
+            }
+        });
+
+        const formData = collectData(fileUrls, validFields);
 
         const slug = formSlug;
 
         try {
+            const reqHeaders = { 'Content-Type': 'application/json' };
+            if (window.deviceFingerprint) {
+                reqHeaders['X-Device-Fingerprint'] = window.deviceFingerprint;
+            }
+
             const res = await fetch(API_BASE + `/api/forms/${slug}/submit`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: reqHeaders,
                 body: JSON.stringify(formData)
             });
 
@@ -535,12 +932,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    function collectData(fileUrls = {}) {
+    function collectData(fileUrls = {}, validFields = null) {
         const data = {};
         const config = window.formContext?.config || [];
 
         config.forEach(field => {
-            if (field.type === 'description' || field.type === 'success_link' || field.type === 'image') return;
+            if (field.type === 'description' || field.type === 'success_link' || field.type === 'image' || field.type === 'section_break') return;
+            
+            // If validFields is provided and this field's ID is not in it, skip it.
+            if (validFields && !validFields.has(field.id)) return;
 
             if (field.type === 'checkbox_group') {
                 const checked = form.querySelectorAll(`input[name="${field.id}"]:checked`);
@@ -615,7 +1015,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const waBtn = document.getElementById("whatsappLink");
         if (link && waBtn) {
             waBtn.href = link.linkUrl;
+            
+            let icon = '<i class="fa-brands fa-whatsapp"></i>';
+            let bg = '#25D366';
+            let text = link.label || 'Join WhatsApp Group';
+            
+            if (link.linkApp === 'telegram') { icon = '<i class="fa-brands fa-telegram"></i>'; bg = '#0088cc'; text = link.label || 'Join Telegram Group'; }
+            else if (link.linkApp === 'instagram') { icon = '<i class="fa-brands fa-instagram"></i>'; bg = '#E1306C'; text = link.label || 'Follow on Instagram'; }
+            else if (link.linkApp === 'youtube') { icon = '<i class="fa-brands fa-youtube"></i>'; bg = '#FF0000'; text = link.label || 'Subscribe on YouTube'; }
+            else if (link.linkApp === 'custom') { icon = '<i class="fa-solid fa-link"></i>'; bg = 'var(--primary)'; text = link.label || 'Action Link'; }
+
+            waBtn.style.background = bg;
+            waBtn.innerHTML = `${icon} ${text}`;
             waBtn.parentNode.style.display = "block";
+            
+            const groupText = waBtn.parentNode.querySelector('p');
+            if (groupText && link.linkApp) {
+                groupText.textContent = link.linkApp === 'custom' ? 'Next step:' : 'Please connect with us for updates:';
+            }
         }
     }
     init();

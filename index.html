@@ -2,112 +2,217 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KumoFumi – Cloud Forms</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@400;700&family=VT323&family=DotGothic16&display=swap"
-        rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:8787 https://custom-forms-api.mr-adhi125.workers.dev https://cloudflareinsights.com;">
+    <title>Admin Login | KumoFumi by Zeon</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <link rel="stylesheet" href="css/form.css">
-    <script type="module" src="js/form-loader.js"></script>
-    <script type="module" src="js/form-logic.js"></script>
+    <link rel="stylesheet" href="css/dialogs.css">
+    <script src="js/dialogs.js"></script>
     <script src="js/dark-mode.js"></script>
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body, #f3f4f6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text-main, #1f2937);
+            position: relative;
+        }
 
+        .theme-toggle-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
 
+        .theme-toggle-btn {
+            background: var(--bg-card, #ffffff);
+            border: 1px solid var(--border, #e5e7eb);
+            color: var(--text-muted, #6b7280);
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
 
+        .theme-toggle-btn:hover {
+            color: var(--primary, #2563eb);
+            background: var(--bg-secondary);
+            transform: translateY(-2px);
+        }
 
+        .login-card {
+            background-color: var(--bg-card, #ffffff);
+            padding: 40px;
+            border-radius: var(--radius, 8px);
+            box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border, #e5e7eb);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .login-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted, #6b7280);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border, #e5e7eb);
+            border-radius: var(--radius, 8px);
+            font-size: 1rem;
+            background-color: var(--input-bg, #ffffff);
+            color: var(--text-main);
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary, #2563eb);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary, #2563eb);
+            color: white;
+            border: none;
+            border-radius: var(--radius, 8px);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
+        }
+
+        .btn-login:hover:not(:disabled) {
+            background-color: var(--primary-hover, #1d4ed8);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .error-msg {
+            background-color: rgba(220, 38, 38, 0.1);
+            color: var(--danger, #dc2626);
+            padding: 10px;
+            border-radius: var(--radius, 8px);
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            display: none;
+        }
+
+        .session-msg {
+            background-color: rgba(234, 179, 8, 0.1);
+            color: #b45309;
+            padding: 10px;
+            border-radius: var(--radius, 8px);
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            display: none;
+        }
+
+        .login-footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+    </style>
 </head>
 
 <body>
-
-    <!-- Header Controls: Settings & Theme Toggle -->
-    <div class="header-controls">
-        <button id="themeToggle" class="control-btn" aria-label="Toggle Dark Mode">
-            <i class="fa-solid fa-sun sun-icon"></i>
+    <div class="theme-toggle-container">
+        <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+            <i class="fa-solid fa-moon"></i>
         </button>
     </div>
 
-    <div class="container">
-
-        <!-- Form Header Card -->
-        <div class="form-header-card" id="formHeaderCard">
-            <div class="header-banner"></div>
-            <div class="header-content">
-                <img src="" alt="Logo" class="club-logo-img" id="dynamicLogo" style="display:none;">
-
-                <div class="header-text-wrapper" id="headerTextWrapper">
-                    <h1 class="form-title" id="dynamicFormTitle"></h1>
-                    <p class="form-subtitle" id="dynamicFormDescription" style="display:none;"></p>
-                </div>
-            </div>
+    <div class="login-card">
+        <div class="login-header">
+            <h1 class="login-title">Admin Login</h1>
+            <p class="login-subtitle">Enter your password to access the panel</p>
         </div>
 
-        <form id="registrationForm" class="registration-form">
+        <div id="sessionMsg" class="session-msg">
+            <i class="fa-solid fa-clock"></i> Your session has expired. Please log in again.
+        </div>
 
-            <div class="form-section" id="formFieldsContainer">
-                <!-- Fields will be rendered here dynamically -->
+        <div id="errorMsg" class="error-msg">Invalid password</div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username" autocomplete="username" spellcheck="false">
+                <p style="margin:6px 0 0; font-size:0.78rem; color:var(--text-muted);"><i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i>Super Admin? Leave username blank.</p>
             </div>
-
-
-
-            <div class="form-actions">
-                <button type="submit" id="submitBtn" class="submit-btn"><span class="btn-text">Submit</span></button>
-                <button type="button" class="clear-btn"
-                    onclick="document.getElementById('registrationForm').reset()">Clear
-                    form</button>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter password" autocomplete="current-password">
             </div>
-
+            <button type="submit" class="btn-login" id="loginBtn">Login</button>
         </form>
 
-        <div class="success-message" id="successMessage">
-            <div class="success-icon-wrapper">
-                <i class="fa-solid fa-circle-check"></i>
-            </div>
-            <h2 class="success-title">Registration Successful</h2>
-            <p class="form-subtitle">Your response has been recorded.</p>
-
-            <div class="whatsapp-group-container" id="whatsappGroupContainer" style="display: none;">
-                <p style="margin-bottom: 15px; color: var(--theme-text-main); font-weight: 500;">Please join the group
-                    for updates:</p>
-                <a href="https://chat.whatsapp.com/YOUR_LINK_HERE" class="whatsapp-link-btn" id="whatsappLink"
-                    target="_blank">
-                    <svg viewBox="0 0 32 32" width="20" height="20" fill="white">
-                        <path
-                            d="M16 2C8.28 2 2 8.28 2 16c0 2.82.74 5.45 2.03 7.74L2 30l6.45-2.03A13.94 13.94 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2z" />
-                    </svg>
-                    Join WhatsApp Group
-                </a>
-            </div>
-
-            <button class="success-btn" id="registerAnother">Submit another response</button>
+        <div class="login-footer">
+            <p>&copy; <span id="currentYear"></span> KumoFumi Cloud Forms by Zeon. All rights reserved.</p>
         </div>
-
-        <!-- Form Closed Message -->
-        <div class="form-closed-message" id="formClosedMessage">
-            <div class="closed-icon">
-                <i class="fa-solid fa-lock"></i>
-            </div>
-            <h2 class="closed-title">This Form is Closed</h2>
-            <p class="form-subtitle">This form is no longer accepting responses.</p>
-            <p class="form-subtitle" style="margin-top: 15px; font-size: 0.9rem;">
-                If you believe this is an error, please contact the form administrator.
-            </p>
-        </div>
-
-    </div>
-    <div class="form-footer">
-        <p id="copyrightText">© <span id="currentYear"></span> TRAIN 303 KumoFumi by Zeon. All rights reserved.</p>
     </div>
 
-    <!-- Set current year dynamically -->
     <script>
         document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Show session expired message if redirected with ?expired=true
+        if (new URLSearchParams(window.location.search).get('expired') === 'true') {
+            const msg = document.getElementById('sessionMsg');
+            if (msg) msg.style.display = 'block';
+        }
     </script>
+    <script src="js/form-login.js"></script>
 </body>
 
 </html>

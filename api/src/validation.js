@@ -7,14 +7,27 @@ export const formFieldSchema = z.object({
     type: z.enum([
         "text", "textarea", "email", "tel", "number", "date", "time",
         "select", "checkbox", "radio", "checkbox_group", "file",
-        "description", "image", "success_link"
+        "description", "image", "success_link", "scale", "section_break"
     ]),
     label: z.string().optional(),
     required: z.boolean().optional(),
     placeholder: z.string().optional(),
-    options: z.array(z.string()).optional(), // For select/radio/checkbox_group
+    options: z.array(
+        z.string().or(
+            z.object({
+                label: z.string(),
+                value: z.string(),
+                goto: z.string().optional()
+            })
+        )
+    ).optional(), // For select/radio/checkbox_group
     linkUrl: z.string().optional(), // For success_link
+    linkApp: z.string().optional(), // For success_link app choice
     mediaUrl: z.string().optional(), // For image
+    scaleMin: z.number().optional(), // For scale min limit
+    scaleLimit: z.number().optional(), // For scale max limit
+    scaleBranching: z.record(z.string()).optional(), // For scale branching rules
+    goto: z.string().optional(), // For section_break routing
     validation: z.object({
         min: z.number().optional(),
         max: z.number().optional(),
@@ -35,6 +48,7 @@ export const formDesignSchema = z.object({
     }).optional(),
     formTitle: z.string().optional(),
     formDescription: z.string().optional(),
+    section1Goto: z.string().optional(),
     responseLimit: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().optional()),
 });
 
@@ -55,8 +69,8 @@ export function createSubmissionSchema(formConfig) {
     const shape = {};
 
     formConfig.forEach((field) => {
-        // Skip display-only fields
-        if (field.type === "description" || field.type === "image" || field.type === "success_link") return;
+        // Skip display-only fields and section dividers
+        if (field.type === "description" || field.type === "image" || field.type === "success_link" || field.type === "section_break") return;
 
         let schema;
 
@@ -65,6 +79,9 @@ export function createSubmissionSchema(formConfig) {
                 schema = z.string().email();
                 break;
             case "number":
+                schema = z.preprocess((val) => Number(val), z.number());
+                break;
+            case "scale":
                 schema = z.preprocess((val) => Number(val), z.number());
                 break;
             case "checkbox":
@@ -93,8 +110,23 @@ export function createSubmissionSchema(formConfig) {
 }
 
 // --- Login Schema ---
+// username is optional: omitting it = Super Admin flow (password-only)
+// providing it = Sub-Admin flow (username + password)
 export const loginSchema = z.object({
-    password: z.string().min(1),
+    password: z.string().min(1, "Password is required"),
+    username: z.string().optional(),
+});
+
+// Schema for creating a new sub-admin user
+export const createAdminUserSchema = z.object({
+    username: z
+        .string()
+        .min(3, "Username must be at least 3 characters")
+        .max(32, "Username must be 32 characters or fewer")
+        .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+    password: z
+        .string()
+        .min(8, "Password must be at least 8 characters"),
 });
 
 /**
