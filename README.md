@@ -12,9 +12,10 @@ A production-grade, serverless form builder inspired by Google Forms. Built for 
 ## ✨ Key Features
 
 - **🔨 Powerful Builder**: Drag-and-drop-style form creation with support for multiple input types (Text, Email, Radio, Checkbox, File Uploads).
-- **🎨 Themeable UI**: Instant dark mode support and customizable theme colors.
+- **🎨 Themeable UI**: Instant dark mode support, customizable theme colors, and logo uploads.
 - **🛡️ SaaS-Grade Security**: JWT-based authentication, server-side validation, and Cloudflare Turnstile integration.
 - **📊 Response Management**: Real-time response tracking with CSV/XLSX/PDF export capabilities.
+- **☁️ Cloud Asset Storage**: Direct Cloudinary integration for handling file uploads.
 - **🚀 Edge-Powered**: Globally distributed serverless architecture for sub-100ms response times.
 
 ---
@@ -100,7 +101,7 @@ Push to any branch connected to **Cloudflare Pages**. Routing is handled automat
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/fossceal/forms.git
-   cd Custom-Form
+   cd forms
    ```
 
 2. **Setup API**:
@@ -129,10 +130,10 @@ Push to any branch connected to **Cloudflare Pages**. Routing is handled automat
 
 ## 🗺️ Roadmap
 
-- [ ] **PDF Export**: Generate professional PDF reports for each submission.
+- [x] **PDF Export**: Generate professional PDF reports for each submission.
 - [ ] **Analytics**: Visual charts for data distribution.
 - [ ] **Webhooks**: Direct integration with Discord/Slack.
-- [ ] **Multi-Admin**: RBAC support for larger teams.
+- [x] **Multi-Admin**: RBAC support for larger teams.
 - [ ] **Scheduling**: Auto-open/close forms based on timestamps.
 
 ---
