@@ -1133,18 +1133,19 @@ document.addEventListener("DOMContentLoaded", () => {
       // targetSectionBreak is null for Section 1, or the section_break object for subsequent sections
       const block = document.createElement("div");
       block.className = "after-section-block";
-      block.style.background = "var(--bg-card)";
-      block.style.padding = "16px 24px";
-      block.style.borderRadius = "12px";
-      block.style.marginTop = "8px";
+      block.style.background = "var(--bg-body)";
+      block.style.padding = "12px 20px";
+      block.style.borderRadius = "8px";
+      block.style.marginTop = "4px";
       block.style.marginBottom = "32px";
       block.style.display = "flex";
+      block.style.flexWrap = "wrap";
+      block.style.gap = "16px";
       block.style.justifyContent = "space-between";
       block.style.alignItems = "center";
-      block.style.border = "1px solid var(--border)";
-      block.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)";
+      block.style.border = "1px dashed var(--border)";
 
-      let selectHtml = `<select class="after-section-select" data-section-id="${targetSectionBreak ? targetSectionBreak.id : "section1"}" style="padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.95rem; background: var(--bg-body); color: var(--text-main); font-weight: 500; min-width: 300px; cursor: pointer; transition: all 0.2s ease; outline: none;">`;
+      let selectHtml = `<select class="after-section-select" data-section-id="${targetSectionBreak ? targetSectionBreak.id : "section1"}" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.9rem; background: var(--bg-card); color: var(--text-main); font-weight: 500; width: 100%; cursor: pointer; transition: all 0.2s ease; outline: none;">`;
 
       // Populate options
       selectHtml += `<option value="continue">Continue to next section</option>`;
@@ -1162,13 +1163,13 @@ document.addEventListener("DOMContentLoaded", () => {
       selectHtml += `</select>`;
 
       block.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 4px; padding-right: 20px; flex-shrink: 0;">
-                <span style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">After section ${secNum}</span>
-                <span style="font-size: 0.9rem; color: var(--text-secondary);">Default routing for users finishing this section</span>
+            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                <i class="fa-solid fa-route" style="color: var(--text-muted); font-size: 1.1rem;"></i>
+                <span style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">After section ${secNum}</span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 300px;">
+            <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; max-width: 400px; min-width: 250px;">
                 ${selectHtml}
-                <input type="text" class="exit-message-input" placeholder="Enter custom exit message..." style="display:none; height: 38px; padding: 0 12px; border-radius: 8px; border: 1px dashed var(--primary); font-size: 0.9rem; background: rgba(37,99,235,0.05); color: var(--text-main); width: 100%; box-sizing: border-box;">
+                <input type="text" class="exit-message-input" placeholder="Enter custom exit message..." style="display:none; height: 36px; padding: 0 12px; border-radius: 6px; border: 1px dashed var(--primary); font-size: 0.9rem; background: rgba(37,99,235,0.05); color: var(--text-main); width: 100%; box-sizing: border-box;">
             </div>
         `;
 
@@ -1260,13 +1261,20 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
 
       if (field.type === "section_break") {
-        fieldItem.style.borderLeft = "6px solid var(--primary)";
-        fieldItem.style.backgroundColor = "rgba(37,99,235,0.05)";
-        fieldItem.style.marginTop = "20px";
+        fieldItem.style.border = "1px solid var(--primary)";
+        fieldItem.style.borderTop = "8px solid var(--primary)";
+        fieldItem.style.backgroundColor = "var(--bg-card)";
+        fieldItem.style.marginTop = "32px";
+        fieldItem.style.marginBottom = "16px";
+        fieldItem.style.boxShadow = "0 6px 16px rgba(37,99,235,0.08)";
+        fieldItem.style.borderBottomLeftRadius = "8px";
+        fieldItem.style.borderBottomRightRadius = "8px";
         fieldContentHtml = `
-              <strong style="color: var(--primary); font-size: 1.1rem;"><i class="fa-solid fa-layer-group"></i> SECTION BREAK</strong>
-              <div style="margin-top:4px; color: var(--text-main); font-weight: 600; font-size: 1.2rem;">${field.label || "Untitled Section"}</div>
-              <div style="color: var(--text-secondary); font-size: 0.9rem;">${field.description || ""}</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                  <div style="background:var(--primary); color:#fff; padding:3px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;">Section ${sectionCounter}</div>
+              </div>
+              <div style="color: var(--text-main); font-weight: 700; font-size: 1.4rem; line-height: 1.3;">${field.label || "Untitled Section"}</div>
+              ${field.description ? `<div style="color: var(--text-secondary); font-size: 0.95rem; margin-top:6px; line-height: 1.5;">${field.description}</div>` : ""}
           `;
       }
 
@@ -1385,7 +1393,12 @@ document.addEventListener("DOMContentLoaded", () => {
       // Editing existing field
       const field = currentFields[index];
       if (document.getElementById("sidebarTitle"))
-        document.getElementById("sidebarTitle").textContent = "Edit Field";
+        document.getElementById("sidebarTitle").textContent = field.type === "section_break" ? "Edit Section" : "Edit Field";
+      if (saveFieldBtn)
+        saveFieldBtn.textContent = field.type === "section_break" ? "Save Section" : "Save Field";
+      if (deleteFieldBtn)
+        deleteFieldBtn.textContent = field.type === "section_break" ? "Delete Section" : "Delete Field";
+      
       if (editLabel) editLabel.value = field.label || "";
       const editDescription = document.getElementById("editDescription");
       if (editDescription) editDescription.value = field.description || "";
@@ -1424,6 +1437,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Adding new field
       if (document.getElementById("sidebarTitle"))
         document.getElementById("sidebarTitle").textContent = "Add Field";
+      if (saveFieldBtn)
+        saveFieldBtn.textContent = "Save Field";
       if (editLabel) editLabel.value = "";
       const editDescription = document.getElementById("editDescription");
       if (editDescription) editDescription.value = "";
@@ -1475,6 +1490,23 @@ document.addEventListener("DOMContentLoaded", () => {
     if (editLabelTitle) {
       editLabelTitle.textContent =
         type === "section_break" ? "Section Title" : "Field Label";
+    }
+
+    const fieldTypeSelectionGroup = document.getElementById("fieldTypeSelectionGroup");
+    if (fieldTypeSelectionGroup) {
+      fieldTypeSelectionGroup.style.display = type === "section_break" ? "none" : "block";
+    }
+    
+    const requiredToggleGroup = document.getElementById("requiredToggleGroup");
+    if (requiredToggleGroup) {
+      requiredToggleGroup.style.display = (type === "section_break" || type === "description" || type === "image") ? "none" : "block";
+    }
+    
+    if (saveFieldBtn) {
+      saveFieldBtn.textContent = type === "section_break" ? "Save Section" : "Save Field";
+    }
+    if (deleteFieldBtn) {
+      deleteFieldBtn.textContent = type === "section_break" ? "Delete Section" : "Delete Field";
     }
 
     // Show/hide link URL for success_link type

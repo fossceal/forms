@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard | KumoFumi by Zeon</title>
+    <title>KumoFumi | Admin Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
@@ -33,11 +33,67 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label>New Password</label>
-                    <input type="password" id="newPasswordInput" class="modal-input" placeholder="Enter new password (min 8 chars)" minlength="8">
+                    <div style="position: relative; margin-bottom: 20px;">
+                        <input type="password" id="newPasswordInput" class="modal-input" placeholder="Enter new password (min 8 chars)" minlength="8" style="padding-right: 40px; margin-bottom: 0;">
+                        <button
+                            type="button"
+                            aria-label="Toggle password visibility"
+                            style="
+                                position: absolute;
+                                right: 10px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                background: none;
+                                border: none;
+                                color: var(--text-muted);
+                                cursor: pointer;
+                                padding: 4px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                            onclick="
+                                const input = this.previousElementSibling;
+                                input.type = input.type === 'password' ? 'text' : 'password';
+                                this.firstElementChild.classList.toggle('fa-eye');
+                                this.firstElementChild.classList.toggle('fa-eye-slash');
+                            "
+                        >
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Confirm Password</label>
-                    <input type="password" id="confirmPasswordInput" class="modal-input" placeholder="Re-enter new password">
+                    <div style="position: relative; margin-bottom: 20px;">
+                        <input type="password" id="confirmPasswordInput" class="modal-input" placeholder="Re-enter new password" style="padding-right: 40px; margin-bottom: 0;">
+                        <button
+                            type="button"
+                            aria-label="Toggle password visibility"
+                            style="
+                                position: absolute;
+                                right: 10px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                background: none;
+                                border: none;
+                                color: var(--text-muted);
+                                cursor: pointer;
+                                padding: 4px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                            onclick="
+                                const input = this.previousElementSibling;
+                                input.type = input.type === 'password' ? 'text' : 'password';
+                                this.firstElementChild.classList.toggle('fa-eye');
+                                this.firstElementChild.classList.toggle('fa-eye-slash');
+                            "
+                        >
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
                 <p id="passwordError" style="color: var(--danger); font-size: 0.9rem; display: none; margin-bottom: 10px;"></p>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -323,7 +379,35 @@
                                 </div>
                                 <div class="form-group" style="margin:0;">
                                     <label>Password</label>
-                                    <input type="password" id="newAdminPassword" placeholder="Min. 8 characters" autocomplete="new-password">
+                                    <div style="position: relative;">
+                                        <input type="password" id="newAdminPassword" placeholder="Min. 8 characters" autocomplete="new-password" style="padding-right: 40px;">
+                                        <button
+                                            type="button"
+                                            aria-label="Toggle password visibility"
+                                            style="
+                                                position: absolute;
+                                                right: 10px;
+                                                top: 50%;
+                                                transform: translateY(-50%);
+                                                background: none;
+                                                border: none;
+                                                color: var(--text-muted);
+                                                cursor: pointer;
+                                                padding: 4px;
+                                                display: flex;
+                                                align-items: center;
+                                                justify-content: center;
+                                            "
+                                            onclick="
+                                                const input = this.previousElementSibling;
+                                                input.type = input.type === 'password' ? 'text' : 'password';
+                                                this.firstElementChild.classList.toggle('fa-eye');
+                                                this.firstElementChild.classList.toggle('fa-eye-slash');
+                                            "
+                                        >
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                    </div>
                                     <p class="hint" style="margin-top:4px;">Minimum 8 characters</p>
                                 </div>
                             </div>
@@ -495,7 +579,7 @@
                     <textarea id="editDescription" rows="3" placeholder="Add a description for this section..." style="width:100%; padding:8px; border:1px solid var(--border); border-radius:4px; font-family:inherit;"></textarea>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="fieldTypeSelectionGroup">
                     <label style="margin-bottom:12px; display:block;">Select Field Type</label>
                     <select id="editType" style="display:none;">
                         <option value="text">Short Text</option>
@@ -743,7 +827,7 @@
                     <p class="hint">Define where the user goes next based on their selected scale value.</p>
                 </div>
 
-                <div class="form-group checkbox-toggle">
+                <div class="form-group checkbox-toggle" id="requiredToggleGroup">
                     <label style="display:flex; align-items:center; cursor:pointer;">
                         <input type="checkbox" id="editRequired" style="width:20px; height:20px; margin-right:10px;">
                         Make this field mandatory

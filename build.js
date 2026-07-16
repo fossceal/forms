@@ -72,7 +72,7 @@ async function build() {
         content = content.replace('</body>', `${protectionScript}</body>`);
 
         const minifiedHtml = await minify(content, {
-            removeAttributeQuotes: true,
+            removeAttributeQuotes: false,
             collapseWhitespace: true,
             removeComments: true,
             minifyJS: true,

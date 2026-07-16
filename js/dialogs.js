@@ -1,6 +1,6 @@
 (function () {
   window.CustomDialog = {
-    alert: function (message) {
+    alert: function (message, type = 'error') {
       return new Promise((resolve) => {
         const overlay = document.createElement("div");
         overlay.className = "custom-dialog-overlay";
@@ -8,9 +8,18 @@
         const dialog = document.createElement("div");
         dialog.className = "custom-dialog-box";
 
+        let iconHtml = '';
+        if (type === 'success') {
+            iconHtml = '<i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 3rem; opacity: 0.9;"></i>';
+        } else if (type === 'error') {
+            iconHtml = '<i class="fa-solid fa-circle-exclamation" style="color: var(--theme-error, #ef4444); font-size: 3rem; opacity: 0.9;"></i>';
+        } else {
+            iconHtml = '<i class="fa-solid fa-circle-info" style="color: var(--primary, #3b82f6); font-size: 3rem; opacity: 0.9;"></i>';
+        }
+
         dialog.innerHTML = `
-            <div style="text-align:center; margin-bottom: 20px; color: var(--theme-error, #ef4444);">
-                <i class="fa-solid fa-circle-exclamation" style="font-size: 3rem; opacity: 0.9;"></i>
+            <div style="text-align:center; margin-bottom: 20px;">
+                ${iconHtml}
             </div>
             <div class="custom-dialog-content">${message}</div>
             <div class="custom-dialog-actions" style="justify-content: center;">
@@ -94,7 +103,16 @@
   document.head.appendChild(style);
 
   // Override native alert to seamlessly integrate
-  window.alert = function (message) {
-    CustomDialog.alert(message);
+  window.alert = function (message, type) {
+    if (!type) {
+      if (/success|uploaded!|removed!|cleared/i.test(message)) {
+        type = 'success';
+      } else if (/fail|error|cannot|please/i.test(message)) {
+        type = 'error';
+      } else {
+        type = 'info';
+      }
+    }
+    CustomDialog.alert(message, type);
   };
 })();
