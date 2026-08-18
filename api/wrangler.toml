@@ -26,7 +26,7 @@ id = "77e2b6347dbb43fdb50b6d7b8d1adb56"
 name = "custom-forms-api"
 
 [env.production.vars]
-ALLOWED_ORIGIN = "https://foss.ceal.in"
+ALLOWED_ORIGIN = "https://forms.ceal.in"
 ENVIRONMENT = "production"
 
 [[env.production.d1_databases]]

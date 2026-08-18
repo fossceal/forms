@@ -12,6 +12,7 @@ let currentDesign = {
   logoLight: null,
   logoDark: null,
   responseLimit: null,
+  closingDate: null,
   allowMultipleResponses: true,
   webTitle: "",
   cloudinary: {
@@ -393,6 +394,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (webTitleInput) webTitleInput.value = currentDesign.webTitle || "";
         if (responseLimitInput)
           responseLimitInput.value = currentDesign.responseLimit || "";
+        
+        const closingDateInput = document.getElementById("closingDateInput");
+        if (closingDateInput)
+          closingDateInput.value = currentDesign.closingDate || "";
         if (colorValueInput)
           colorValueInput.value = currentDesign.themeColor || "#db4437";
         if (themeColorSwatch)
@@ -433,9 +438,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const formTitleInput = document.getElementById("formTitleInput");
   const formDescInput = document.getElementById("formDescInput");
   const responseLimitInput = document.getElementById("responseLimitInput");
-  const allowMultipleInput = document.getElementById(
+  const allowMultipleResponsesInput = document.getElementById(
     "allowMultipleResponsesInput",
   );
+  const closingDateInput = document.getElementById("closingDateInput");
   const webTitleInput = document.getElementById("webTitleInput");
   const cloudNameInput = document.getElementById("cloudinaryCloudName");
   const cloudPresetInput = document.getElementById("cloudinaryPreset");
@@ -544,12 +550,21 @@ document.addEventListener("DOMContentLoaded", () => {
       currentDesign.responseLimit = e.target.value
         ? parseInt(e.target.value)
         : null;
+      markUnsavedChanges();
+    });
+  }
+
+  // Sync closing date
+  if (closingDateInput) {
+    closingDateInput.addEventListener("input", (e) => {
+      currentDesign.closingDate = e.target.value || null;
+      markUnsavedChanges();
     });
   }
 
   // Sync allow multiple responses
-  if (allowMultipleInput) {
-    allowMultipleInput.addEventListener("change", (e) => {
+  if (allowMultipleResponsesInput) {
+    allowMultipleResponsesInput.addEventListener("change", (e) => {
       currentDesign.allowMultipleResponses = e.target.checked;
     });
   }
@@ -963,6 +978,7 @@ document.addEventListener("DOMContentLoaded", () => {
       logoLight: null,
       logoDark: null,
       responseLimit: null,
+      closingDate: null,
       allowMultipleResponses: true,
       webTitle: "",
       cloudinary: {
@@ -987,8 +1003,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (formTitleInput) formTitleInput.value = currentDesign.formTitle;
     if (webTitleInput) webTitleInput.value = currentDesign.webTitle || "";
     if (formDescInput) formDescInput.value = currentDesign.formDescription;
+    document.getElementById("formDescInput").value = "";
     document.getElementById("responseLimitInput").value = "";
-    if (allowMultipleInput) allowMultipleInput.checked = true;
+    document.getElementById("closingDateInput").value = "";
+    const amr = document.getElementById("allowMultipleResponsesInput");
+    if (amr) amr.checked = true;
 
     // Clear file inputs
     const bannerUpload = document.getElementById("bannerUpload");
@@ -1066,6 +1085,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentDesign.formTitle = form.title || form.name || "Untitled";
       currentDesign.formDescription = form.description || "";
       currentDesign.responseLimit = form.responseLimit || null;
+      currentDesign.closingDate = form.closingDate || null;
     }
 
     // Update UI
@@ -1081,6 +1101,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("responseLimitInput"))
       document.getElementById("responseLimitInput").value =
         currentDesign.responseLimit || "";
+    
+    if (document.getElementById("closingDateInput"))
+      document.getElementById("closingDateInput").value =
+        currentDesign.closingDate || "";
 
     const allowMultipleInput = document.getElementById(
       "allowMultipleResponsesInput",
@@ -2093,6 +2117,8 @@ document.addEventListener("DOMContentLoaded", () => {
         responseLimit: currentDesign.responseLimit
           ? parseInt(currentDesign.responseLimit)
           : null,
+        closingDate: currentDesign.closingDate || null,
+        allowMultipleResponses: currentDesign.allowMultipleResponses !== false,
       };
 
       try {

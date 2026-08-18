@@ -201,6 +201,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function checkLimitsLocally() {
+        // Date Limit Check
+        const closingDate = window.formContext?.design?.closingDate;
+        if (closingDate) {
+            const closingTime = new Date(closingDate).getTime();
+            if (Date.now() > closingTime) {
+                enforceClosedUI("Form Closed", "This form is no longer accepting responses.");
+                return; // Stop further limit checks if closed by date
+            }
+        }
+
         const limit = parseInt(window.formContext?.design?.responseLimit);
         if (!limit || limit <= 0) return;
 

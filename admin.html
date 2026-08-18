@@ -240,8 +240,15 @@
                                 <p class="hint">Automatically close after this many responses.</p>
                             </div>
                             <div class="form-group" style="margin:0;">
-                                <label style="visibility:hidden; display:block; margin-bottom:8px;">Spacer</label>
-                                <label style="display:flex; align-items:center; cursor:pointer; font-weight: 500; background:var(--bg-body); padding:10px 15px; border-radius:8px; border:1px solid var(--border); margin:0; height:45px;">
+                                <label>Closing Date & Time (Optional)</label>
+                                <input type="datetime-local" id="closingDateInput">
+                                <p class="hint">Automatically close form after this date.</p>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr; gap:20px; margin-bottom:20px; align-items:start;">
+                            <div class="form-group" style="margin:0;">
+                                <label style="display:flex; align-items:center; cursor:pointer; font-weight: 500; background:var(--bg-body); padding:10px 15px; border-radius:8px; border:1px solid var(--border); margin:0; height:45px; width:fit-content;">
                                     <input type="checkbox" id="allowMultipleResponsesInput" checked
                                         style="width:20px; height:20px; margin-right:10px; margin-bottom:0;">
                                     Allow multiple responses

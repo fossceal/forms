@@ -134,7 +134,7 @@ Push to any branch connected to **Cloudflare Pages**. Routing is handled automat
 - [ ] **Analytics**: Visual charts for data distribution.
 - [ ] **Webhooks**: Direct integration with Discord/Slack.
 - [x] **Multi-Admin**: RBAC support for larger teams.
-- [ ] **Scheduling**: Auto-open/close forms based on timestamps.
+- [x] **Scheduling**: Auto-close forms based on timestamps.
 
 ---
 
